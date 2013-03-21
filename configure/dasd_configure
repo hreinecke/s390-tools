@@ -207,24 +207,13 @@ if [ $DASD_FORCE -eq 0 ]; then
 	[ -x /sbin/modprobe ] && /sbin/modprobe -q vmcp
 	# Wait until udev is settled
 	[ -x /sbin/udevadm ] && /sbin/udevadm settle --timeout=30
-
+	# CCW_CHAN_ID might be lowercase; vmcp uses uppercase
+	chan=$(echo ${CCW_CHAN_ID##*.} | tr [:lower:] [:upper:])
 	# Check read-only status of virtual DASDs from z/VM
-	if /sbin/vmcp q v dasd > /dasd_attr.lst 2> /dev/null; then
-	    while read x dev type label attr1 attr2 rest; do
-		dev=`echo $dev|tr A-F a-f`
-		if test "$type" = "ON"; then
-		    attr="$attr2"
-		else
-		    attr="$attr1"
-		fi
-		if [ "$CCW_CHAN_ID" = "0.0.$dev" ]; then
-		    if test "$attr" = "R/O"; then
-			_ccw_use_readonly="1"
-		    fi
-		fi
-	    done < /dasd_attr.lst
+	attr=$(/sbin/vmcp q v dasd | sed -n "s/DASD $chan .* \(R\/[OW]\) .*/\1/p")
+	if test "$attr" = "R/O"; then
+	    _ccw_use_readonly="1"
 	fi
-	rm -f /dasd_attr.lst
     fi # if [ -x /sbin/vmcp -a $? -eq 0 ]
 
     if [ "$ONLINE" -eq 1 ]; then
