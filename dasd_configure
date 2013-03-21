@@ -1,0 +1,301 @@
+#! /bin/sh
+#
+# dasd_configure
+# $Id: dasd_configure,v 1.10 2004/11/26 15:50:48 hare Exp $
+#
+# Configures a DASD
+#
+# Usage:
+#   dasd_configure <ccwid> <online> <use_diag>
+#
+# Return values:
+#   1  sysfs not mounted
+#   2  Invalid status for <online>
+#   3  No device found for <ccwid>
+#   4  Could not change state of the device
+#   5  Device is not a DASD
+#   6  Could not load module
+#
+
+DEBUG=no
+
+mesg () {
+    echo "$@"
+}
+
+debug_mesg () {
+    case "$DEBUG" in
+        yes) mesg "$@" ;;
+        *) ;;
+    esac
+}
+
+# Get the mount point for sysfs
+while read MNTPT MNTDIR MNTSYS MNTTYPE; do
+    if test "$MNTSYS" = "sysfs"; then
+	SYSFS="$MNTDIR"
+	break;
+    fi 
+done </proc/mounts
+
+if [ -z "$SYSFS" ]; then
+    exit 1
+fi
+
+CCW_CHAN_ID=$1
+ONLINE=$2
+USE_DIAG=$3
+
+# DEBUG="yes"
+
+if [ -z "$ONLINE" ] || [ "$ONLINE" -ne "1" -a "$ONLINE" -ne "0" ]; then
+    debug_mesg "Invalid device status $ONLINE"
+    exit 2
+fi
+
+_ccw_dir=${SYSFS}/bus/ccw/devices
+
+debug_mesg "Configuring device ${CCW_CHAN_ID}"
+_ccw_status_dir="$_ccw_dir/$CCW_CHAN_ID"
+
+if test ! -d "$_ccw_status_dir" ; then
+    if test "$ONLINE" -eq 1 ; then
+        debug_mesg "No device ${CCW_CHAN_ID}"
+        exit 3
+    fi
+    _ccw_dev_status=0
+else
+
+    read _cu_type < $_ccw_status_dir/cutype
+    read _dev_type < $_ccw_status_dir/devtype
+
+    case "$_cu_type" in
+    3990/*|2105/*|2107/*|1750/*|9343/*)
+	CCW_CHAN_NAME="dasd-eckd"
+	MODULE=dasd_eckd_mod
+	DISCIPLINE=ECKD
+	;;
+    6310/*)
+	CCW_CHAN_NAME="dasd-fba"
+	MODULE=dasd_fba_mod
+	DISCIPLINE=FBA
+	;;
+    3880/*)
+	case "$_dev_type" in
+	    3390/*)
+		CCW_CHAN_NAME="dasd-eckd"
+		MODULE=dasd_eckd_mod
+		DISCIPLINE=ECKD
+		;;
+	    3370/*)
+		CCW_CHAN_NAME="dasd-fba"
+		MODULE=dasd_fba_mod
+		DISCIPLINE=FBA
+		;;
+	    *)
+		CCW_CHAN_NAME=
+		;;
+	esac
+	;;
+    *)
+	CCW_CHAN_NAME=
+	;;
+    esac
+
+    if [ -z "$CCW_CHAN_NAME" ]; then
+        mesg "No a DASD device (cu $_cutype, dev $_devtype)"
+        exit 5
+    fi
+
+    # Check for modules
+    if test ! -d "${SYSFS}/bus/ccw/drivers/${CCW_CHAN_NAME}" ; then
+        /sbin/modprobe $MODULE
+
+        # Re-check whether module loading has succeeded
+        if test ! -d "${SYSFS}/bus/ccw/drivers/${CCW_CHAN_NAME}"; then
+	    debug_mesg "Could not load module ${MODULE}"
+	    exit 6
+        fi
+    fi
+
+    read _ccw_dev_status < $_ccw_status_dir/online
+fi
+
+if [ -x /sbin/vmcp ]; then
+    # Unconditionally load the cpint module, loader might be broken
+    [ -x /sbin/modprobe ] && /sbin/modprobe -q vmcp
+    # Wait until udev is settled
+    [ -x /sbin/udevsettle ] && /sbin/udevsettle --timeout=30
+
+    # Check read-only status of virtual DASDs from z/VM
+    if /sbin/vmcp q v dasd > /dasd_attr.lst 2> /dev/null; then
+	while read x dev type label attr1 attr2 rest; do
+	    dev=`echo $dev|tr A-F a-f`
+	    if test "$type" = "ON"; then
+		attr="$attr2"
+	    else
+		attr="$attr1"
+	    fi
+	    if [ "$CCW_CHAN_ID" = "0.0.$dev" ]; then
+		if test "$attr" = "R/O"; then
+		    _ccw_use_readonly="1"
+		fi
+	    fi
+	done < /dasd_attr.lst
+    fi
+    rm -f /dasd_attr.lst
+fi
+
+if [ "$ONLINE" -eq 1 ]; then
+    # Check whether we need to do something
+    read _ccw_use_diag < $_ccw_status_dir/use_diag
+
+    if [ "$_ccw_use_diag" -ne "$USE_DIAG" ] && 
+	[ "$_ccw_dev_status" -eq 1 ] ; then
+	# We need to change the DIAG access mode
+	# so better set the device offline
+	debug_mesg "Setting device offline for DIAG access"
+	echo "0" > $_ccw_status_dir/online
+        # Re-read device status
+	read _ccw_dev_status < $_ccw_status_dir/online
+	if [ "$_ccw_dev_status" -ne 0 ]; then
+	    mesg "Could not set the device offline for DIAG access"
+	    exit 4
+	fi
+    fi
+
+    if [ "$_ccw_dev_status" -eq 0 ]; then
+	# Set readonly access if detected
+	if [ "$_ccw_use_readonly" ]; then
+	    debug_mesg "Setting device read-only"
+	    echo 1 > $_ccw_status_dir/readonly
+	fi
+
+	if [ "$USE_DIAG" -eq 1 ]; then
+	    # Load the diag module if possible
+	    [ -x /sbin/modprobe ] && /sbin/modprobe -q dasd_diag_mod
+	    _has_dasd_diag=$(/bin/sed -n '/^dasd_diag_mod/p' /proc/modules)
+	    if [ "$_has_dasd_diag" ]; then
+	        # DIAG mode is special:
+	        # We can only be sure if DIAG is available
+	        # _after_ we have activated the device
+		debug_mesg "Activating DIAG access mode"
+		echo "$USE_DIAG" > $_ccw_status_dir/use_diag
+		read _ccw_use_diag < $_ccw_status_dir/use_diag
+	        # Set the device online
+		debug_mesg "Setting device online"
+		echo "1" > $_ccw_status_dir/online
+                # Re-read device status
+		read _ccw_dev_status < $_ccw_status_dir/online
+		if [ "$_ccw_dev_status" -eq 0 ]; then
+		    mesg "Could not activate DIAG access mode for device ${CCW_CHAN_ID}"
+		    USE_DIAG=0
+		    echo "$USE_DIAG" > $_ccw_status_dir/use_diag
+	            # Set the device online
+		    debug_mesg "Setting device online"
+		    echo "1" > $_ccw_status_dir/online
+		else
+		    MODULE=dasd_diag_mod
+		fi
+	    else
+		debug_mesg "DIAG mode not available"
+		USE_DIAG=0
+	        # Set the device online
+		debug_mesg "Setting device online"
+		echo "1" > $_ccw_status_dir/online
+	    fi
+	else
+	    if [ "$_ccw_use_diag" -eq 1 ] ; then
+	        debug_mesg "Deactivating DIAG access mode"
+	        echo "0" > $_ccw_status_dir/use_diag
+	        read _ccw_use_diag < $_ccw_status_dir/use_diag
+	    fi
+	    # Set the device online
+	    debug_mesg "Setting device online"
+	    echo "1" > $_ccw_status_dir/online
+	fi
+        # Re-read device status
+	read _ccw_dev_status < $_ccw_status_dir/online
+	if [ "$_ccw_dev_status" -eq 0 ]; then
+	    mesg "Could not set device ${CCW_CHAN_ID} online"
+	    exit 4
+	fi
+    else
+	debug_mesg "Device ${CCW_CHAN_ID} is already online"
+    fi
+else
+    if [ "$_ccw_dev_status" -eq 1 ]; then
+        # Set the device offline
+	debug_mesg "Setting device offline"
+	echo "$ONLINE" > $_ccw_status_dir/online
+
+        # Re-read to check whether we have succeeded
+	_ccw_dev_status=$(cat $_ccw_status_dir/online)
+	if [ "$_ccw_dev_status" -ne "$ONLINE" ]; then
+	    debug_mesg "Could not set device ${CCW_CHAN_ID} offline"
+	    exit 4
+	fi
+    else
+	debug_mesg "Device ${CCW_CHAN_ID} is already offline"
+    fi
+    if [ -d "$_ccw_status_dir" ] ; then
+        # Always disabling DIAG access
+        echo "0" > $_ccw_status_dir/use_diag
+    fi
+    # Set readonly access if detected
+    if [ "$_ccw_use_readonly" ]; then
+	debug_mesg "Setting device read-only"
+	echo 1 > $_ccw_status_dir/readonly
+    fi
+fi
+
+HWCFG_DIR=/etc/sysconfig/hardware
+HWCFG_FILE=hwcfg-dasd-bus-ccw-${CCW_CHAN_ID}
+
+if [ -d "$HWCFG_DIR" ]; then
+    if [ -f ${HWCFG_DIR}/${HWCFG_FILE} ]; then
+	rm -f ${HWCFG_DIR}/${HWCFG_FILE}
+    fi
+
+    if [ "$ONLINE" -eq "1" ]; then
+        # Write a new hwcfg file
+	cat > ${HWCFG_DIR}/${HWCFG_FILE} <<EOF
+#!/bin/sh
+#
+# hwcfg-dasd-bus-ccw-${CCW_CHAN_ID}
+#
+# Configuration for a DASD device (${DISCIPLINE} mode)
+#
+
+STARTMODE="auto"
+MODULE="${MODULE}"
+MODULE_OPTIONS=""
+MODULE_UNLOAD="yes"
+
+# Scripts to be called for the various events.
+# If called manually the event is set to 'up'.
+SCRIPTUP="hwup-ccw"
+SCRIPTUP_ccw="hwup-ccw"
+SCRIPTDOWN="hwdown-ccw"
+SCRIPTDOWN_ccw="hwdown-ccw"
+
+EOF
+	if [ "$USE_DIAG" -eq 1 ]; then
+	    cat >> ${HWCFG_DIR}/${HWCFG_FILE} <<EOF
+# DASD_USE_DIAG selects whether DIAG access mode
+# should be activated for this device
+DASD_USE_DIAG="${USE_DIAG}"
+
+EOF
+	else
+	    cat >> ${HWCFG_DIR}/${HWCFG_FILE} <<EOF
+# DASD_USE_DIAG selects whether DIAG access mode
+# should be activated for this device
+# DASD_USE_DIAG="${USE_DIAG}"
+
+EOF
+	fi
+    fi
+fi
+
+

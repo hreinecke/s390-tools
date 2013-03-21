@@ -1,0 +1,310 @@
+#!/bin/sh
+#
+# zfcp_disk_configure
+#
+# Configures a zfcp disk
+#
+# Usage:
+#   zfcp_disk_configure <ccwid> <wwpn> <lun> <online>
+#
+# Return codes
+#   1  sysfs not mounted
+#   2  invalid value for <online>
+#   3  device <ccwid> does not exist
+#   4  WWPN invalid
+#   5  Could not activate WWPN for adapter
+#   6  Could not activate ZFCP disk 
+#   7  SCSI disk could not be deactivated
+#   8  ZFCP LUN could not be deregistered
+#   9  ZFCP WWPN could not be deregistered
+#
+
+
+mesg () {
+    echo "$@"
+}
+
+debug_mesg () {
+    case "$DEBUG" in
+        yes) mesg "$@" ;;
+        *) ;;
+    esac
+}
+
+# Get the mount point for sysfs
+while read MNTPT MNTDIR MNTSYS MNTTYPE; do
+    if test "$MNTSYS" = "sysfs"; then
+	SYSFS="$MNTDIR"
+	break;
+    fi 
+done </proc/mounts
+
+if [ -z "$SYSFS" ]; then
+    exit 1
+fi
+
+CCW_CHAN_ID=$1
+FCP_WWPN=${2#0x*}
+FCP_LUN=${3#0x*}
+ONLINE=$4
+# normalise to lower case
+FCP_WWPN=`echo $FCP_WWPN | sed 's/A/a/g;s/B/b/g;s/C/c/g;s/D/d/g;s/E/e/g;s/F/f/g'`
+FCP_LUN=`echo $FCP_LUN | sed 's/A/a/g;s/B/b/g;s/C/c/g;s/D/d/g;s/E/e/g;s/F/f/g'`
+
+DEBUG="yes"
+
+if [ -z "$ONLINE" ] || [ "$ONLINE" -ne "1" -a "$ONLINE" -ne "0" ]; then
+    debug_mesg "Invalid device status $ONLINE"
+    exit 2
+fi
+
+_ccw_dir=${SYSFS}/bus/ccw/devices
+
+_zfcp_dir="$_ccw_dir/$CCW_CHAN_ID"
+
+if test ! -d "$_zfcp_dir" ; then
+    debug_mesg "No device ${CCW_CHAN_ID}"
+    exit 3
+fi
+
+HWCFG_DIR=/etc/sysconfig/hardware
+HWCFG_FILE=hwcfg-zfcp-bus-ccw-${CCW_CHAN_ID}
+
+if [ ! -f ${HWCFG_DIR}/${HWCFG_FILE} ]; then
+    debug_mesg "No configuration file for adapter ${CCW_CHAN_ID}"
+else
+    . ${HWCFG_DIR}/${HWCFG_FILE}
+fi
+
+# Add default values
+STARTMODE=${STARTMODE:-"auto"}
+MODULE=${MODULE:-"zfcp"}
+MODULE_UNLOAD=${MODULE_UNLOAD:-"yes"}
+SCRIPTUP=${SCRIPTUP:-"hwup-ccw"}
+SCRIPTUP_ccw=${SCRIPTUP_ccw:-"hwup-ccw"}
+SCRIPTUP_scsi_host=${SCRIPTUP_scsi_host:-"hwup-zfcp"}
+SCRIPTDOWN=${SCRIPTDOWN:-"hwdown-scsi"}
+SCRIPTDOWN_scsi=${SCRIPTDOWN_scsi:-"hwdown-zfcp"}
+
+# Check whether we need to do something
+if [ -d ${_zfcp_dir}/0x${FCP_WWPN}/0x${FCP_LUN} ]; then
+    if [ "$ONLINE" -eq "1" ]; then
+	debug_mesg "FCP disk ${FCP_WWPN}:${FCP_LUN} already configured"
+	exit 0
+    fi
+else
+    if [ "$ONLINE" -eq "0" ]; then
+	debug_mesg "FCP disk ${FCP_WWPN}:${FCP_LUN} does not exist"
+	exit 0
+    fi
+fi
+
+if [ "$ONLINE" -eq "1" ]; then
+    # Configure SCSI disk
+    debug_mesg "Configuring FCP disk ${FCP_WWPN}:${FCP_LUN}"
+
+    # Check whether the wwpn is already configured
+    _zfcp_wwpn_dir="${_zfcp_dir}/0x${FCP_WWPN}"
+    if [ ! -d "${_zfcp_wwpn_dir}" ]; then
+	echo "0x${FCP_WWPN}" > ${_zfcp_dir}/port_add
+    fi
+    # Re-check whether it exists now
+    if [ ! -d "${_zfcp_wwpn_dir}" ] ; then
+	mesg "Could not activate WWPN ${FCP_WWPN} for adapter ${CCW_CHAN_ID}"
+	exit 5
+    else
+        # Check whether the WWPN is activated
+        if [ `cat ${_zfcp_wwpn_dir}/failed` -eq "1" ] ; then
+          mesg "WWPN ${FCP_WWPN} invalid."
+          debug_mesg "WWPN ${FCP_WWPN} invalid."
+          exit 4 
+        fi
+        # Check and configure the zfcp-lun
+	if [ ! -d "${_zfcp_wwpn_dir}/0x${FCP_LUN}" ] ; then
+	    echo "0x${FCP_LUN}" > ${_zfcp_wwpn_dir}/unit_add
+            /sbin/udevsettle
+	fi
+	# Re-check whether the disk could be activated
+	if [ ! -d "${_zfcp_wwpn_dir}/0x${FCP_LUN}" ] ; then
+	    debug_mesg "Could not activate FCP disk ${FCP_WWPN}:${FCP_LUN}"
+	    exit 6
+	fi
+	# Check for failed disks
+	read wwpn_status < ${_zfcp_wwpn_dir}/0x${FCP_LUN}/in_recovery
+	while [ "$wwpn_status" != 0 ] ; do
+	    sleep 1
+	    read wwpn_status < ${_zfcp_wwpn_dir}/0x${FCP_LUN}/in_recovery
+	    [ "$wwpn_status" = 0 ] && break
+	done
+	read wwpn_status < ${_zfcp_wwpn_dir}/0x${FCP_LUN}/failed
+	if [ "$wwpn_status" = 1 ] ; then
+	    debug_mesg "ERP failed on FCP disk ${FCP_WWPN}:${FCP_LUN}"
+	    exit 7
+	fi
+    fi
+
+    # Write the configuration file
+    rm -f ${HWCFG_DIR}/${HWCFG_FILE}
+
+    if test -d ${HWCFG_DIR}; then
+	cat > ${HWCFG_DIR}/${HWCFG_FILE} <<EOF
+#!/bin/sh
+#
+# hwcfg-zfcp-bus-ccw-${CCW_CHAN_ID}
+#
+# Configuration for the zfcp adapter at CCW ID ${CCW_CHAN_ID}
+#
+
+STARTMODE="${STARTMODE}"
+MODULE="${MODULE}"
+MODULE_OPTIONS=""
+MODULE_UNLOAD="${MODULE_UNLOAD}"
+
+# Scripts to be called for the various events.
+# If called manually the event is set to 'up'.
+SCRIPTUP="${SCRIPTUP}"
+SCRIPTUP_ccw="${SCRIPTUP_ccw}"
+SCRIPTUP_scsi_host="${SCRIPTUP_scsi_host}"
+SCRIPTDOWN="${SCRIPTDOWN}"
+SCRIPTDOWN_scsi="${SCRIPTDOWN_scsi}"
+
+EOF
+    fi
+    # Write out FCP_LUNs
+    if [ "$ZFCP_LUNS" ]; then
+	ZFCP_LUNS="$ZFCP_LUNS
+0x${FCP_WWPN}:0x${FCP_LUN}"
+    else
+	ZFCP_LUNS="
+0x${FCP_WWPN}:0x${FCP_LUN}"
+    fi
+
+    if test -d ${HWCFG_DIR}; then
+	cat >> ${HWCFG_DIR}/${HWCFG_FILE} <<EOF
+# Configured zfcp disks
+ZFCP_LUNS="$ZFCP_LUNS"
+
+EOF
+    fi
+else
+    # Deconfigure SCSI disk
+    debug_mesg "Deconfiguring FCP disk ${FCP_WWPN}:${FCP_LUN}"
+
+    _zfcp_wwpn_dir="${_zfcp_dir}/0x${FCP_WWPN}"
+    # Find the correspondig SCSI disk
+    for host_dir in $_zfcp_dir/host*; do
+	if [ -d $host_dir ] ; then
+	    _zfcp_scsi_host_dir=$host_dir
+	    break;
+	fi
+    done
+    if [ -d "$_zfcp_scsi_host_dir" ] ; then
+        # Deregister the disk from SCSI layer
+	for target in $_zfcp_scsi_host_dir/rport-*/target*/* ; do
+	    [ "$target" != ${target##*/fc_transport} ] && continue
+	    if [ -d $target ] ; then
+		_zfcp_target_id=${target##*/}
+		read _zfcp_tmp_hba < ${target}/hba_id
+		read _zfcp_tmp_wwpn < ${target}/wwpn
+		read _zfcp_tmp_lun < ${target}/fcp_lun
+		if [ "0x${FCP_LUN}" = "$_zfcp_tmp_lun" -a "0x${FCP_WWPN}" = "$_zfcp_tmp_wwpn" ] ; then
+		    echo 1 > $target/delete
+		    _zfcp_scsi_dir=$target
+		    break;
+		fi
+	    fi
+	done
+    else
+	debug_mesg "No SCSI disk found for FCP disk ${FCP_WWPN}:${FCP_LUN}"
+    fi
+
+    # Re-check whether the SCSI disk is gone
+    if [ -d "${_zfcp_scsi_dir}" ]; then
+	debug_mesg "Could not deactivate SCSI disk ${_zfcp_scsi_id}"
+	exit 7
+    fi
+
+    # Wait for udev to catch up
+    udevsettle
+
+    # check multipathing
+    _zfcp_scsi_dev=$(multipathd -k'show paths' 2> /dev/null | sed -n "s/$_zfcp_target_id \(sd[a-z]*\).*/\1/p")
+    [ "$_zfcp_scsi_dev" ] && multipathd -k"del path $_zfcp_scsi_dev"
+
+    # Deconfigure the FCP_LUN
+    : ${_zfcp_wwpn_dir}
+    echo "0x${FCP_LUN}" > ${_zfcp_wwpn_dir}/unit_remove
+    if [ -d "${_zfcp_wwpn_dir}/0x${FCP_LUN}" ]; then
+	debug_mesg "Could not deregister FCP LUN ${FCP_LUN}"
+	exit 8
+    fi
+
+    # Check whether we can remove the FCP port
+    num_luns=0
+    for tmp_lun in ${_zfcp_wwpn_dir}/0x*; do
+	if [ -d "$tmp_lun" ]; then
+	    num_luns=$(expr $num_luns + 1)
+	fi
+    done
+    if (($num_luns == 0)); then
+	echo "0x${FCP_WWPN}" > ${_zfcp_dir}/port_remove
+       # Re-check whether we have deactivated the FCP port
+	if [ -d "${_zfcp_wwpn_dir}" ]; then
+	    debug_mesg "Could not deactivate FCP WWPN ${FCP_WWPN}" 
+	    exit 9
+	fi
+    fi
+
+    # Find all remaining activated disks
+    ZFCP_LUNS=
+    for _tmp_wwpn_dir in ${_zfcp_dir}/0x*; do
+	if [ -d "$_tmp_wwpn_dir" ]; then
+	    tmp_wwpn=$(basename $_tmp_wwpn_dir)
+	    # Find all luns
+	    for _tmp_lun_dir in ${_tmp_wwpn_dir}/0x*; do
+		if [ -d "$_tmp_lun_dir" ]; then
+		    tmp_lun=$(basename $_tmp_lun_dir)
+		    tmp_port="${tmp_wwpn}:${tmp_lun}"
+		    ZFCP_LUNS="$ZFCP_LUNS
+$tmp_port"
+		fi
+	    done
+	fi
+    done
+
+    if test -d ${HWCFG_DIR}; then
+        # And write out configuration file
+	rm -f ${HWCFG_DIR}/${HWCFG_FILE}
+	cat > ${HWCFG_DIR}/${HWCFG_FILE} <<EOF
+#!/bin/sh
+#
+# hwcfg-zfcp-bus-ccw-${CCW_CHAN_ID}
+#
+# Configuration for the zfcp adapter at CCW ID ${CCW_CHAN_ID}
+#
+
+STARTMODE="${STARTMODE}"
+MODULE="${MODULE}"
+MODULE_OPTIONS=""
+MODULE_UNLOAD="${MODULE_UNLOAD}"
+
+# Scripts to be called for the various events.
+# If called manually the event is set to 'up'.
+SCRIPTUP="${SCRIPTUP}"
+SCRIPTUP_ccw="${SCRIPTUP_ccw}"
+SCRIPTUP_scsi_host="${SCRIPTUP_scsi_host}"
+SCRIPTDOWN="${SCRIPTDOWN}"
+SCRIPTDOWN_scsi="${SCRIPTDOWN_scsi}"
+
+EOF
+	if [ "$ZFCP_LUNS" ]; then
+	    cat >> ${HWCFG_DIR}/${HWCFG_FILE} <<EOF
+# Configured zfcp disks
+ZFCP_LUNS="$ZFCP_LUNS"
+
+EOF
+	fi
+    fi
+fi
+
+# EOF

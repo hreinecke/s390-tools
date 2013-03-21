@@ -1,0 +1,170 @@
+#!/bin/sh
+#
+# zfcp_host_configure
+#
+# Configures a zfcp host adapter
+#
+# Usage:
+#   zfcp_host_configure <ccwid> <online>
+#
+# Return codes
+#   1  sysfs not mounted
+#   2  invalid value for <online>
+#   3  device <ccwid> does not exist
+#   4  module zfcp could not be loaded
+#   5  adapter status could not be changed
+#   6  wwpn ports still active
+#
+
+mesg () {
+    echo "$@"
+}
+
+debug_mesg () {
+    case "$DEBUG" in
+        yes) mesg "$@" ;;
+        *) ;;
+    esac
+}
+
+# Get the mount point for sysfs
+while read MNTPT MNTDIR MNTSYS MNTTYPE; do
+    if test "$MNTSYS" = "sysfs"; then
+	SYSFS="$MNTDIR"
+	break;
+    fi 
+done </proc/mounts
+
+if [ -z "$SYSFS" ]; then
+    exit 1
+fi
+
+CCW_CHAN_ID=$1
+ONLINE=$2
+MODULE=zfcp
+
+DEBUG="yes"
+
+if [ -z "$ONLINE" ] || [ "$ONLINE" -ne "1" -a "$ONLINE" -ne "0" ]; then
+    debug_mesg "Invalid device status $ONLINE"
+    exit 2
+fi
+
+_ccw_dir=${SYSFS}/bus/ccw/devices
+
+_zfcp_dir="$_ccw_dir/$CCW_CHAN_ID"
+
+if test ! -d "$_zfcp_dir" ; then
+    debug_mesg "No device ${CCW_CHAN_ID}"
+    exit 3
+fi
+
+# Check whether we need to load the zfcp module
+if test ! -d "${SYSFS}/bus/ccw/drivers/zfcp"; then
+    modprobe ${MODULE}
+
+    # Re-check whether module loading has succeeded
+    if test ! -d "${SYSFS}/bus/ccw/drivers/zfcp"; then
+	debug_mesg "Could not load module ${MODULE}"
+	exit 4
+    fi
+fi
+
+HWCFG_DIR=/etc/sysconfig/hardware
+HWCFG_FILE=hwcfg-zfcp-bus-ccw-${CCW_CHAN_ID}
+
+# Check whether we need to do something
+_zfcp_dev_status=$(cat $_zfcp_dir/online)
+if [ "$_zfcp_dev_status" -eq "$ONLINE" ]; then
+    debug_mesg "ZFCP adapter ${CCW_CHAN_ID} already in status ${ONLINE}"
+    exit 0
+fi
+
+debug_mesg "Configuring device ${CCW_CHAN_ID}"
+
+if [ -f ${HWCFG_DIR}/${HWCFG_FILE} ]; then
+    rm -f ${HWCFG_DIR}/${HWCFG_FILE}
+fi
+
+
+if [ "$ONLINE" -eq "1" ]; then
+    # Activate the device
+    echo "$ONLINE" > $_zfcp_dir/online
+
+    # Now wait until the adapter has been
+    # registered with the SCSI mid-layer
+    for i in 1 2 3 4 5; do
+	for file in $_zfcp_dir/host*; do
+	    if [ -d "$file" ]; then
+		_zfcp_host_dir=$file
+	    fi
+	done
+	if [ "$_zfcp_host_dir" ]; then
+	    break;
+	fi
+	sleep $i
+    done
+
+    # Check whether the lock file is still there
+    if [ -z "$_zfcp_host_dir" ]; then
+	debug_mesg "Could not activate adapter"
+	exit 5
+    fi
+
+    # Fixup dev_loss_tmo value
+    for rport in $_zfcp_dir/host*/rport-*:*-* ; do
+	if [ -d "$rport" ] ; then
+	    	p=${rport##*/}
+		echo 30 > ${rport}/fc_remote_ports:${p}/dev_loss_tmo
+	fi
+    done
+
+    # Write the configuration file
+    if test -d ${HWCFG_DIR}; then
+	cat > ${HWCFG_DIR}/${HWCFG_FILE} <<EOF
+#!/bin/sh
+#
+# hwcfg-zfcp-bus-ccw-${CCW_CHAN_ID}
+#
+# Configuration for the zfcp adapter at CCW ID ${CCW_CHAN_ID}
+#
+
+STARTMODE="auto"
+MODULE="${MODULE}"
+MODULE_OPTIONS=""
+MODULE_UNLOAD="yes"
+
+# Scripts to be called for the various events.
+# If called manually the event is set to 'up'.
+SCRIPTUP="hwup-ccw"
+SCRIPTUP_ccw="hwup-ccw"
+SCRIPTUP_scsi_host="hwup-zfcp"
+SCRIPTDOWN="hwdown-scsi"
+SCRIPTDOWN_scsi="hwdown-zfcp"
+
+EOF
+    fi
+else
+    num_ports=0
+    for tmp_wwpn in ${_zfcp_dir}/0x*; do
+	if [ -d "$tmp_wwpn" ]; then
+	    num_ports=$(expr $num_ports + 1)
+	fi
+    done
+    if (($num_ports == 0)); then
+	echo "0" > ${_zfcp_dir}/online
+    else
+	debug_mesg "ZFCP WWPN still active, cannot deconfigure"
+	exit 6
+    fi
+    # Re-read to check whether we have succeeded
+    _ccw_dev_status=$(cat $_zfcp_dir/online)
+    if [ "$_ccw_dev_status" -ne "$ONLINE" ]; then
+	debug_mesg "Could not change status of device ${CCW_CHAN_ID} to $ONLINE"
+	exit 5
+    fi
+
+    debug_mesg "ZFCP adapter at ${CCW_CHAN_ID} deactivated"
+fi
+
+# EOF
