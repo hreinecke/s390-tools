@@ -98,7 +98,7 @@ if [ $DASD_FORCE -eq 0 ]; then
     done </proc/mounts
 
     if [ -z "$SYSFS" ]; then
-	mesg "$SYSFS not present"
+	mesg "/sysfs not present"
 	exit 1
     fi
 else
