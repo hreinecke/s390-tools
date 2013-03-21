@@ -44,6 +44,13 @@ if use_script dasd; then
 		cat > $tmp_mnt/etc/udev/rules.d/51-dasd-${ccw}.rules <<EOF
 ACTION=="add", SUBSYSTEM=="ccw", KERNEL=="$ccw", IMPORT{program}="collect $ccw %k ${ccw} $drv"
 ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$drv", IMPORT{program}="collect $ccw %k ${ccw} $drv"
+EOF
+		if [ "$discipline" -eq 2 ] ; then
+		    cat >> $tmp_mnt/etc/udev/rules.d/51-dasd-${ccw}.rules <<EOF
+ACTION=="add", ENV{COLLECT_$ccw}=="0", ATTR{[ccw/$ccw]use_diag}="1"
+EOF
+		fi
+		cat >> $tmp_mnt/etc/udev/rules.d/51-dasd-${ccw}.rules <<EOF
 ACTION=="add", ENV{COLLECT_$ccw}=="0", ATTR{[ccw/$ccw]online}="1"
 EOF
 	        verbose "[DASD] $sysdev -> ${ccw} ($type)"
