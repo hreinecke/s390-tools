@@ -20,10 +20,10 @@
 #   3  device <ccwid> does not exist
 #   4  WWPN invalid
 #   5  Could not activate WWPN for adapter
-#   6  Could not activate ZFCP disk 
+#   6  Could not activate zFCP disk
 #   7  SCSI disk could not be deactivated
-#   8  ZFCP LUN could not be deregistered
-#   9  ZFCP WWPN could not be deregistered
+#   8  zFCP LUN could not be deregistered
+#   9  zFCP WWPN could not be deregistered
 #
 
 

@@ -100,7 +100,7 @@ RULES_FILE=51-zfcp-${CCW_CHAN_ID}.rules
 # Check whether we need to do something
 _zfcp_dev_status=$(cat $_zfcp_dir/online)
 if [ "$_zfcp_dev_status" -eq "$ONLINE" ]; then
-    debug_mesg "ZFCP adapter ${CCW_CHAN_ID} already in status ${ONLINE}"
+    debug_mesg "zFCP adapter ${CCW_CHAN_ID} already in status ${ONLINE}"
     exit 0
 fi
 
@@ -146,7 +146,7 @@ else
 	exit 5
     fi
 
-    debug_mesg "ZFCP adapter at ${CCW_CHAN_ID} deactivated"
+    debug_mesg "zFCP adapter at ${CCW_CHAN_ID} deactivated"
 fi
 
 # EOF
