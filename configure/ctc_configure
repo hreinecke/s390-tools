@@ -61,15 +61,19 @@ fi
 if [ $# -lt 3 ] ; then
     echo "Usage: $0 <read channel> <write channel> <online> [<protocol>]"
     echo "	read/write channel = x.y.ssss where"
-    echo "			     x is always 0 until IBM creates something that uses that number"
-    echo "			     y is the logical channel subsystem (lcss) number. Most often this is 0, but it could be non-zero"
-    echo "			     ssss is the four digit subchannel address of the device, in hexidecimal, with leading zeros."
+    echo "		x is always 0"
+    echo "		  (until IBM creates something that uses that number)"
+    echo "		y is the logical channel subsystem (lcss) number."
+    echo "		  Most often this is 0, but it could be non-zero"
+    echo "		ssss is the four digit subchannel address of the device"
+    echo "		  (in hexidecimal, with leading zeros)"
     echo "	online = 0 to take the device offline"
     echo "		 1 to bring the device online"
-    echo "	protocol = 0 Compatibility with peers other than OS/390®, or z/OS, for example, a z/VM TCP service machine. This is the default."
+    echo "	protocol = 0 Compatibility with peers other than OS/390® or z/OS,"
+    echo "		     eg a z/VM TCP service machine. This is the default."
     echo "		   1 Enhanced package checking for Linux peers."
     echo "		   3 For compatibility with OS/390 or z/OS peers."
-    echo "		   4 For MPC connections to VTAM on traditional mainframe operating systems."
+    echo "		   4 For MPC connections to VTAM on traditional mainframe OSes."
     exit 1
 fi
 
@@ -179,25 +183,23 @@ fi
 #	Adresse are free (but may be bound to the wrong driver)
 #
 _ccw_drivers=${SYSFS}/bus/ccw/drivers
-for i in ${CTC_READ_CHAN} ${CTC_WRITE_CHAN}
-  do
-        if [ "$CCW_CHAN_GROUP" = "lcs" ]
-        then
-                if [ -e "${_ccw_drivers}/ctcm/${i}" ] ; then
-                        echo $i > ${_ccw_drivers}/ctcm/unbind
-                fi
-                if [ ! -e "${_ccw_drivers}/lcs/${i}" ] ; then
-                    echo $i > ${_ccw_drivers}/ctcm/bind
-                fi
-        else
-                if [ -e "${_ccw_drivers}/lcs/${i}" ] ; then
-                        echo $i > ${_ccw_drivers}/lcs/unbind
-                fi
-                if [ ! -e "${_ccw_drivers}/ctcm/${i}" ] ; then
-                        echo $i > ${_ccw_drivers}/ctcm/bind
-                fi
+for i in ${CTC_READ_CHAN} ${CTC_WRITE_CHAN} ; do
+    if [ "$CCW_CHAN_GROUP" = "lcs" ] ; then
+        if [ -e "${_ccw_drivers}/ctcm/${i}" ] ; then
+            echo $i > ${_ccw_drivers}/ctcm/unbind
         fi
-  done
+        if [ ! -e "${_ccw_drivers}/lcs/${i}" ] ; then
+            echo $i > ${_ccw_drivers}/ctcm/bind
+        fi
+    else
+        if [ -e "${_ccw_drivers}/lcs/${i}" ] ; then
+            echo $i > ${_ccw_drivers}/lcs/unbind
+        fi
+        if [ ! -e "${_ccw_drivers}/ctcm/${i}" ] ; then
+            echo $i > ${_ccw_drivers}/ctcm/bind
+        fi
+    fi
+done
 
 debug_mesg "Group is ${_ccw_groupdir}/drivers/${CCW_CHAN_GROUP}/group"
 if [ -z "$_ccw_status_dir" ] ; then
