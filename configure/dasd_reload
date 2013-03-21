@@ -1,0 +1,77 @@
+#!/bin/sh
+#
+# dasd_reload
+# $Id: dasd_reload,v 1.2 2004/05/26 15:17:09 hare Exp $
+#
+# Deconfigures all active DASDs, unloads the modules
+# and activates the configured DASDs again.
+# Needed to establish an identical device mapping
+# in the installation system and in the running system.
+# All DASD access need to be cancelled prior to running
+# this script.
+#
+# Usage:
+#    dasd_reload
+#
+# Return values:
+#   1  Cannot read /proc/modules
+#   2  Missing module programs
+#   3  /sys not mounted
+#   4  Failure on deactivate DASDs
+#
+
+if [ ! -r /proc/modules ]; then
+    echo "Cannot read /proc/modules"
+    exit 1
+fi
+
+if [ ! -x /sbin/rmmod -o ! -x /sbin/modprobe ]; then
+    echo "Missing module programs"
+    exit 2
+fi
+
+if [ ! -d /sys/bus ]; then
+    echo "sysfs not mounted"
+    exit 3
+fi
+
+for dev in /sys/bus/ccw/devices/*; do
+    if [ -f $dev/use_diag ]; then
+	read _online < $dev/online
+	if [ "$_online" -eq 1 ]; then
+	    echo "setting DASD $(basename $dev) offline"
+	    echo "0" > $dev/online
+	    read _online < $dev/online
+	    if [ "$_online" -eq 1 ]; then
+		echo "failure on setting DASD $(basename $dev) offline !"
+		exit 4
+	    fi
+	fi
+    fi
+done
+
+module_list=
+module_test_list="dasd_diag_mod dasd_eckd_mod dasd_fba_mod dasd_mod"
+for module in $module_test_list; do
+    if grep -q "$module" /proc/modules; then
+	module_list="$module $module_list"
+	: Unloading $module
+	/sbin/rmmod $module
+    fi
+done
+
+if [ -d /etc/udev/rules.d ]; then
+    cd /etc/udev/rules.d
+    for file in 51-dasd-*.rules; do
+	if [ -f "$file" ] ; then
+	    ccw=$(echo $file| sed -n 's/..-dasd-\(.*\)\.rules/\1/p')
+	    echo Activating $ccw
+	    if grep -q use_diag $file ; then
+		DASD_USE_DIAG=1
+	    else
+		DASD_USE_DIAG=0
+	    fi
+	    /sbin/dasd_configure $ccw 1 $DASD_USE_DIAG
+	fi
+    done
+fi
