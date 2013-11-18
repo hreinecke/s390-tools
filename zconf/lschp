@@ -1,0 +1,190 @@
+#!/bin/bash
+#==============================================================================
+# Copyright IBM Corp. 2007
+#
+# lschp
+#
+# Script to list channel-path status.
+#
+# Author(s): Peter Oberparleiter <peter.oberparleiter@de.ibm.com>
+#
+# This file is part of s390-tools
+#
+# s390-tools is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# s390-tools is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with s390-tools; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#==============================================================================
+
+SYSFS="/sys"
+VERSION="%S390_TOOLS_VERSION%"
+TOOLNAME=${0##*/}
+
+shopt -s nullglob	# glob with no match should result in empty string
+
+# Print help text
+function print_help()
+{
+	cat <<EOF
+Usage: ${TOOLNAME} <options>
+
+List information about available channel-paths.
+
+-h, --help               Print this help, then exit
+-v, --version            Print version information, then exit
+EOF
+}
+
+# Print version information
+function print_version()
+{
+	cat <<EOF
+${TOOLNAME}: version ${VERSION}
+Copyright IBM Corp. 2007
+EOF
+}
+
+# Get a sorted list of decimal css ids
+function get_css_id_list()
+{
+	local DIR
+
+	for DIR in $1/css*; do
+		echo $((0x${DIR##*/css}))
+	done | sort -n
+}
+
+# Get a sorted list of decimal channel-path ids
+function get_chp_id_list()
+{
+	local DIR
+
+	for DIR in $1/chp*; do
+		echo $((0x${DIR##*.}))
+	done | sort -n
+}
+
+# Get channel-path attribute value
+function get_chp_id_attr()
+{
+	local VAR=$1
+	local VAL=$4
+
+	if [ -r $2/$3 ] ; then
+		read < $2/$3 VAL 2>/dev/null
+	fi
+	eval $VAR=\"$VAL\"
+}
+
+# Parse command line parameters
+while [ $# -gt 0 ]; do
+	case $1 in
+	-h|--help)
+		print_help
+		exit 0
+		;;
+	-v|--version)
+		print_version
+		exit 0
+		;;
+	-*|--*)
+		echo "$TOOLNAME: Invalid option $1" >&2
+		echo "Try '$TOOLNAME --help' for more information." >&2
+		exit 1
+		;;
+	*)
+		echo "$TOOLNAME: Invalid argument $1" >&2
+		echo "Try '$TOOLNAME --help' for more information." >&2
+		exit 1
+		;;
+	esac
+	shift
+done
+
+if [ ! -e "$SYSFS" ] ; then
+	echo "$TOOLNAME: $SYSFS does not exist" >&2
+	exit 1
+fi
+
+if [ ! -d "$SYSFS" ] ; then
+	echo "$TOOLNAME: $SYSFS is not a directory" >&2
+	exit 1
+fi
+
+# Generate output
+echo "CHPID  Vary  Cfg.  Type  Cmg  Shared  PCHID"
+echo "============================================"
+
+CSS_ID_LIST=$(get_css_id_list $SYSFS/devices)
+
+for CSS_ID in $CSS_ID_LIST ; do
+	CSS_DIR=$(printf "%s/devices/css%x" $SYSFS $CSS_ID)
+	CHP_ID_LIST=$(get_chp_id_list $CSS_DIR)
+	for CHP_ID in $CHP_ID_LIST ; do
+		CHP=$(printf "%x.%x" $CSS_ID $CHP_ID)
+		CHP_DIR="$CSS_DIR/chp$CHP"
+		if [ ! -d "$CHP_DIR" ] ; then
+			CHP=$(printf "%x.%02x" $CSS_ID $CHP_ID)
+			CHP_DIR="$CSS_DIR/chp$CHP"
+		fi
+
+		# process vary attribute
+		get_chp_id_attr CHP_VARY $CHP_DIR "status" "-"
+		if [ "$CHP_VARY" == "online" ] ; then
+			CHP_VARY=1
+		elif [ "$CHP_VARY" == "offline" ] ; then
+			CHP_VARY=0
+		fi
+
+		# process configure attribute
+		get_chp_id_attr CHP_CFG $CHP_DIR "configure" "-"
+
+		# process type attribute
+		get_chp_id_attr CHP_TYPE $CHP_DIR "type" "-"
+		if [ "$CHP_TYPE" != "-" ] ; then
+			CHP_TYPE=$(printf "%02x" "0x$CHP_TYPE")
+		fi
+
+		# process cmg attribute
+		get_chp_id_attr CHP_CMG $CHP_DIR "cmg" "-"
+		if [ "$CHP_CMG" == "unknown" ] ; then
+			CHP_CMG="-"
+		elif [ "$CHP_CMG" != "-" ] ; then
+			CHP_CMG=$(printf "%x" $CHP_CMG)
+		fi
+
+		# process shared attribute
+		get_chp_id_attr CHP_SHARED $CHP_DIR "shared" "-"
+		if [ "$CHP_SHARED" == "unknown" ] ; then
+			CHP_SHARED="-"
+		elif [ "$CHP_SHARED" != "-" ] ; then
+			CHP_SHARED=$(printf "%x" $CHP_SHARED)
+		fi
+
+		get_chp_id_attr CHP_CHID $CHP_DIR "chid" "-"
+		get_chp_id_attr CHP_CHID_E $CHP_DIR "chid_external" "0"
+		if [ -z "$CHP_CHID" -o "$CHP_CHID" == "-" ] ; then
+			CHP_CHID=" -"
+		else
+			if [ $CHP_CHID_E == "1" ] ; then
+				CHP_CHID=" $CHP_CHID "
+			else
+				CHP_CHID="($CHP_CHID)"
+			fi
+		fi
+
+
+		printf "%-5s  %-4s  %-4s  %-4s  %-3s  %-6s %-6s\n" \
+		       "$CHP" "$CHP_VARY" "$CHP_CFG" \
+		       "$CHP_TYPE" "$CHP_CMG" "$CHP_SHARED" "$CHP_CHID"
+	done
+done

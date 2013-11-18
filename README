@@ -1,0 +1,1396 @@
+s390-tools (1.23.1)
+   Category operating system. Contains the source tree of a set of
+   user space utilities that should to be used together with the
+   System z (s390) Linux kernel and device drivers.
+
+   The package contains:
+
+   * dasdfmt:
+     Low-level format ECKD DASDs with the classical Linux disk layout or the new
+     z/OS compatible disk layout.
+
+   * fdasd:
+     Create or modify partitions on ECKD DASDs formatted with the z/OS
+     compatible disk layout.
+
+   * dasdview:
+     Display DASD and VTOC information or dump the contents of a DASD to the
+     console.
+
+   * dasdinfo:
+     Display unique DASD ID, either UID or volser.
+
+   * udev rules:
+     - 59-dasd.rules: rules for unique DASD device nodes created in /dev/disk/.
+     - 57-osasnmpd.rules: udev rules for osasnmpd.
+     - 60-readahead.rules: udev rules to set increased "default max readahead".
+     - 40-z90crypt.rules: udev rules for z90crypt driver
+
+   * zipl:
+     Make DASDs or tapes bootable for system IPL or system dump.
+
+   * zgetdump:
+     Retrieve system dumps from either tapes or DASDs.
+
+   * qetharp:
+     Read and flush the ARP cache on OSA Express network cards.
+
+   * tape390_display:
+     Display information on the message display facility of a System z tape
+     device.
+
+   * tape390_crypt:
+     Control and query crypto settings for 3592 System z tape devices.
+
+   * osasnmpd:
+     UCD-SNMP/NET-SNMP subagent implementing MIBs provided by OSA-Express
+     features Fast Ethernet, Gigabit Ethernet, High Speed Token Ring and
+     ATM Ethernet LAN Emulation in QDIO mode.
+
+   * qethconf:
+     bash shell script simplifying the usage of qeth IPA (IP address
+     takeover), VIPA (Virtual IP address) and Proxy ARP.
+
+   * dbginfo.sh:
+     Shell script collecting useful information about the current system for
+     debugging purposes.
+
+   * zfcpdump:
+     Dump tool to create system dumps on fibre channel attached SCSI disks.
+     It is installed using the zipl command.
+
+   * zfcpdump_v2:
+     Version 2 of the zfcpdump tool. Now based on the upstream 2.6.26 Linux
+     kernel.
+
+   * ip_watcher:
+     Provides HiperSockets Network Concentrator functionality.
+     It looks for addresses in the HiperSockets and sets them as Proxy ARP
+     on the OSA cards. It also adds routing entries for all IP addresses
+     configured on active HiperSockets devices.
+     Use start_hsnc.sh to start HiperSockets Network Concentrator.
+
+   * tunedasd:
+     Adjust tunable parameters on DASD devices.
+
+   * vmconvert:
+     Convert system dumps created by the z/VM VMDUMP command into dumps with
+     LKCD format. These LKCD dumps can then be analyzed with the dump analysis
+     tool lcrash.
+
+   * vmcp:
+     Allows Linux users to send commands to the z/VM control program (CP).
+     The normal usage is to invoke vmcp with the command you want to
+     execute. The response of z/VM is written to the standard output.
+
+   * vmur:
+     Allows to work with z/VM spool file queues (reader, punch, printer).
+
+   * zfcpdbf:
+     Display debug data of zfcp. zfcp provides traces via the s390 debug
+     feature. Those traces are filtered with the zfcpdbf script, i.e. merge
+     several traces, make it more readable etc.
+
+   * scsi_logging_level:
+     Create, get or set the logging level for the SCSI logging facility.
+
+   * zconf:
+     Set of scripts to configure and list status information of Linux on
+     System z devices.
+     - chccwdev: Modify generic attributes of channel attached devices.
+     - lscss:      List channel subsystem devices.
+     - lsdasd:     List channel attached direct access storage devices (DASD).
+     - lsqeth:     List all qeth-based network devices with their corresponding
+                   settings.
+     - lstape:     List tape devices, both channel and FCP attached.
+     - lszfcp:     Shows information contained in sysfs about zfcp adapters,
+                   ports and units that are online.
+     - lschp:      List information about available channel-paths.
+     - lsscm:      List information about available Storage Class Memory
+                   Increments.
+     - chchp:      Modify channel-path state.
+     - lsluns:     List available SCSI LUNs depending on adapter or port.
+     - lszcrypt:   Show Information about zcrypt devices and configuration.
+     - chzcrypt:   Modify zcrypt configuration.
+     - znetconf:   List and configure network devices for System z network
+                   adapters.
+     - cio_ignore: Query and modify the contents of the CIO device driver
+                   blacklist.
+     - lsmem:      Display the online status of the available memory.
+     - chmem:      Set hotplug memory online or offline.
+     - dasdstat:   Configure and format the debugfs based DASD statistics data.
+
+   * dumpconf:
+     Allows to configure the dump device used for system dump in case a kernel
+     panic occurs. This tool can also be used as an init script for etc/init.d.
+     Prerequisite for dumpconf is a Linux kernel with the "dump on panic"
+     feature.
+
+   * mon_statd:
+     Linux - z/VM monitoring daemons.
+
+     - mon_fsstatd: Daemon that writes file system utilization data to the
+                    z/VM monitor stream.
+
+     - mon_procd:   Daemon that writes process information data to the z/VM
+                    monitor stream.
+
+   * cpuplugd:
+     Daemon that manages CPU and memory resources based on a set of rules.
+     Depending on the workload CPUs can be enabled or disabled. The amount of
+     memory can be increased or decreased exploiting the CMM1 feature.
+
+   * ipl_tools:
+     Tool set to configure and list re-IPL and shutdown actions.
+     - lsreipl: List information of re-IPL device.
+     - chreipl: Change re-IPL device settings.
+     - lsshut:  List actions which will be done in case of halt, poff, reboot
+                or panic.
+     - chshut:  Change actions which should be done in case of halt, poff,
+                reboot or panic.
+
+   * ziomon tools:
+     Tool set to collect data for zfcp performance analysis and report.
+
+   * iucvterm:
+     z/VM IUCV terminal applications.
+
+     A set of applications to provide terminal access via the z/VM Inter-User
+     Communication Vehicle (IUCV). The terminal access does not require an
+     active TCP/IP connection between two Linux guest operating systems.
+
+     - iucvconn:  Application to establish a terminal connection via z/VM IUCV.
+     - iucvtty:   Application to provide terminal access via z/VM IUCV.
+     - ts-shell:  Terminal server shell to authorize and control IUCV terminal
+                  connections for individual Linux users.
+   * ttyrun:
+     Depending on your setup, Linux on System z might or might not provide a
+     particular terminal or console. The ttyrun tool safely starts getty
+     programs and prevents respawns through the init program, if a terminal
+     is not available.
+
+   * cmsfs-fuse:
+     Use  the  cmsfs-fuse command to read and write files stored on a z/VM
+     CMS disk. The cmsfs-fuse file system translates the record-based EDF file
+     system on the CMS disk to UNIX semantics. It is possible to mount a CMS
+     disk and use common Linux tools to access the files on the disk.
+
+   * hyptop:
+     Provides a dynamic real-time view of a System z hypervisor environment.
+     It works with the z/VM and LPAR hypervisor. Depending on the available
+     data it shows e.g. CPU and memory consumption of active LPARs or z/VM
+     virtual guests. The tool provides a curses based user interface similar
+     to the popular Linux 'top' command.
+
+   * qethqoat:
+     Use qethqoat to query the OSA address table and display physical and
+     logical device information.
+
+For more information refer to the following publications:
+   * "Device Drivers, Features, and Commands" chapter "Useful Linux commands"
+   * "Using the dump tools"
+
+Dependencies:
+=============
+   * osasnmpd:
+     You need at least the UCD-SNMP 4.2.3 package (net-snmp-devel.rpm)
+     installed, before building the osasnmpd subagent.
+     For more information on UCD-SNMP/NET-SNMP refer to:
+     http://net-snmp.sourceforge.net/
+
+   * lsluns:
+     For executing the lsluns script the sg_luns command must be available.
+     The sg_luns executable is part of the SCSI generic device driver package
+     (sg3 utils/sg utils).
+
+   * ziomon tools:
+     For executing the ziomon tools an installed blktrace package is required.
+     See: git://git.kernel.dk/blktrace.git
+
+   * cmsfs-fuse/zgetdump:
+     cmsfs-fuse and zgetdump depend on FUSE. FUSE is provided by installing
+     the fuse and libfuse packages and by a kernel compiled with CONFIG_FUSE_FS.
+     For compiling the s390-tools package the fuse-devel package is required.
+     For further information about FUSE see: http://fuse.sourceforge.net/
+     cmsfs-fuse requires FUSE version 2.8.1 or newer for full functionality.
+
+   * hyptop:
+     The ncurses-devel package is required to build hyptop.
+     The libncurses package is required to run hyptop.
+     IMPORTANT: When running hyptop on a System z10 LPAR, the required minimum
+                microcode code level is the following:
+                Driver 79 MCL N24404.008 in the SE-LPAR stream
+
+   * ip_watcher/xcec-bridge:
+     Since s390-tools-1.10.0 the minimum required kernel level is 2.6.26.
+
+   * zfcpdbf:
+     Since s390-tools-1.13.0 the minimum required kernel level is 2.6.38.
+
+Release History:
+================
+1.23.1
+    Changes of existing tools:
+    - zgetdump: Enhance --select option handling
+          For "--select kdump", only the memory chunk [0, crashkernel size] is
+          included in the target dump. For "--select prod", the memory chunk
+          [crashkernel base, crashkernel base + size] is excluded from the
+          target dump. In addition to that, with "--select all" now
+          both "kdump" and "prod" can be selected for the target dump.
+    - zgetdump: Change default target dump format from s390 to ELF
+    - libutil: Changes for util_list functions
+          * Add util_list_sort() function
+          * Remove "_entry" name component from function names
+    - hyptop: Use util_list_sort() function
+    - znetconf: Allow uppercase characters in device bus-IDs
+    - dbginfo.sh: Generic lookup for runtime environment
+
+    Bug Fixes:
+    - znetconf: Improve command line parsing
+    - znetconf: Handle removal of offline'd ccwgroup devices
+    - lsqeth: Fix errors in output for offline'd ccwgroup devices
+    - dbginfo.sh: Avoid exclusion list for pipes in sysfs
+    - zipl dump tools: Fix zipl "--force" option for DASD multi-volume dump
+    - zipl dump tools: Do not write dump signature in case of "--force" option
+    - lsqeth: Fix man page wording
+    - zipl/zfcpdump: Use possible_cpus=1 kernel parameter to reduce memory usage
+    - zgetdump: Fix info error message for short dump devices
+    - zgetdump: Use p_filesz instead of p_memsz for reading ELF dumps
+
+1.23.0
+    Changes of existing tools:
+    - lschp: Show Physical channel-ID
+    - dasdfmt: Increase formatting speed
+          * Enlarge size of formatting steps which allows recent DASD device
+            drivers (kernel 3.10 and later) to optimize channel programs
+          * Use PAV alias devices and add -r option for tuning
+    - hyptop, cmsfs-fuse, zgetdump: Exchange linked list implementation
+
+    Bug Fixes:
+    - zgetdump: Print warning for live dump if memory layout has been changed
+    - lsqeth: Print card_type attribute for real devices
+
+1.22.0
+    Changes of existing tools:
+    - lscss: Add --vpm option
+    - qethqoat: Add support for VEPA mode
+
+    Bug Fixes:
+    - znetconf: Fix man page formatting
+    - znetconf: Improve command line parsing
+    - zfcpdbf: Fix offset and length of fields in trace records
+
+1.21.0
+    Changes of existing tools:
+    - chccwdev: Add -s/--safeoffline feature
+    - qethconf: Document that tool is for layer 3 mode devices only
+
+    Bug Fixes:
+    - qethqoat: Fix OSA 4S detection
+    - zfcpdump: Release HSA early if Linux kernel supports it
+    - ip_watcher: Fix perl warning
+    - zfcpdbf: Fix decoding of deferred errors
+    - zipl: Fix FBA boot
+    - zgetdump: Fix ELF header size calculation
+    - dasdfmt: Prevent usage of a partition
+
+1.20.0
+    Added new tool:
+    - lsscm
+
+    Changes of existing tools:
+    - lszcrypt: Add support for CEX4 crypto cards
+    - zgetdump: Improve text for --help option
+    - lscss: Add support for EADM subchannels
+    - lsqeth: Add support for new card_type value
+    - fdasd: Add -f/--force option to support non DASD devices
+    - cpuplugd: Improve default config file
+    - zipl: Flexible IPL record
+    - zipl: Add virtblock boot support
+    - cmsfs-fuse: Remove the dasd info ioctls
+
+    Bug Fixes:
+    - zgetdump: Stop live dump in case of read errors
+    - zgetdump: Live dump support for NSS Linux systems
+    - zipl dump tools: Print message "I/O Error" to report device problems
+    - zipl: Prevent DASD ioctl on SCSI partitions
+    - zipl: Flush disk cache before installing IPL record
+    - chccwdev: Fail if incompatible options / invalid bus-IDs are specified
+    - dbginfo.sh: Improve data collection and speed
+    - ziomon: Follow symlinks to find multipath devices
+    - udev: Let udev wait for read_ahead_kb attribute
+    - zipl: Check if used tools are available
+
+1.19.0
+    Changes of existing tools:
+    - zgetdump: Add live dump support
+            The zgetdump tool can now use the /dev/mem device node as source
+            dump. This allows the creation of non-disruptive kernel live dumps
+            in every target format that is supported.
+
+    Bug Fixes:
+    - qethqoat: Support OSA address tables with more than 8 KiB
+    - qethqoat: Improve error handling
+    - hyptop: Add hint to man page how to setup the HMC for monitoring all LPARs
+    - lsluns: Check SCSI registration in loop after LUN0 and WLUN unit_add
+    - zgetdump: Improve checking of "kdump_flat" dumps for --info option
+
+1.18.0
+    Added new tool:
+    - qethqoat
+
+    Changes of existing tools:
+    - lsqeth: Provide more detailed output for virtual NICs
+    - zipl/zgetdump/lsreipl: Add stand-alone kdump support
+    - dbginfo.sh: Add qethqoat output
+
+    Bug Fixes:
+    - fdasd: Fix parsing of answers to confirmation questions
+    - mon_statd: Fix stopping of unused records in mon_procd and mon_fsstatd
+    - build: Use correct gcc option --coverage for coverage testing
+    - ziomon: Fix parsing of multipath devices and duplicate entries
+    - lsluns: Fix checks for SCSI generic (sg) functionality.
+    - 59-dasd.rules: Remove obsolete by-uuid and by-label rules
+
+1.17.1
+    Added new tool:
+    - 40-z90crypt.rules
+
+    Bug Fixes:
+    - dasdstat: Fix error messages when debugfs is not mounted
+    - dasdstat: Print error messages to 'standard error'
+    - qethconf: Fix/improve IPv6 address handling
+    - znetconf: Fix layer auto-detection for z/VM 6.x
+    - af_iucv.7: Add getsockopt option SO_MSGSIZE
+    - af_iucv.7: Adapt sockaddr structure
+            Adapt the sockaddr definition to /usr/include/netiucv/iucv.h
+            of glibc-headers.
+    - cmsfs-fuse: Use pread/pwrite if mmap'ing the whole disk fails
+    - mon_statd: Fix error "udevsettle: command not found"
+
+1.17.0
+    Changes of existing tools:
+    - kdump support:
+      * lsshut: kdump base support
+            Print information when kdump is enabled.
+      * lsshut: PSW restart support
+            Show action for restart trigger.
+      * dumpconf: PSW restart support
+            Configure the same action for the restart trigger as for the panic
+            trigger.
+      * zgetdump: vmcoreinfo support
+            Print UTS name information for dumps and create a VMCOREINFO
+            note section for ELF target dump format.
+      * zgetdump: makedumpfile kdump format support
+            The --info option prints information on makedumpfile generated
+            dumps (kdump format).
+      * zgetdump: kdump failure recovery support
+            If kdump failes and a stand-alone dump is created afterwards,
+            with the new zgetdump --select option, the user can choose
+            between the production system dump and the failed kdump dump.
+
+    - lsqeth: Add new attribute "hsuid"
+    - dbginfo.sh: Added new man-page dbginfo.sh.1
+    - ip_watcher/xcec-bridge: Remove support of 2.4.x kernels
+    - ip_watcher/xcec-bridge: Adjust for 3.x kernels
+    - ttyrun: Introduce --verbose option for creating syslog messages
+
+    Bug Fixes:
+    - dasdstat: Add short option "-v" for "--version"
+    - qetharp: Man page improvements
+    - zipl dump tools: Do not use larl for 31 bit code
+          The larl instruction is not available for pre z900 machines in
+          31 bit mode. In order to be able to compile zipl also for that
+          machines, the larl instruction is replaced by instructions that
+          work on older machines.
+    - zipl dump tools: Print memory limit info also for 31 bit code
+          If a memory limit is specified by zipl, now also for 31 bit
+          a message is printed when a dump is created.
+    - ip_watcher/xcec-bridge: Correct warning in xcec-bridge
+    - af_iucv.7: Add documentation about HiperSockets communication
+
+1.16.0
+    Added new tool:
+    - dasdstat
+
+    Bug Fixes:
+    - build process: Do not use subshells from recursive build
+          With this change, the recursive build stops with error code != 0
+          if one directory fails to build.
+    - cpuplugd: Fix typos and wording in man page
+    - cpuplugd: Fix config file parsing
+    - dasdfmt: Fix dummy bootstrap records for LDL DASD devices
+    - fdasd: Fix generation of disk label for option "auto" and "config"
+    - lsluns: Fix "--help" option
+          The help text wrongly showed "--ports" instead of "--port".
+          Now "--port" is printed.
+    - lsluns: Add check for required SCSI generic (sg) functionality
+    - dumpconf: Do not use DELAY_MINUTES for restart
+    - dumpconf: Allow up to eight vmcmd commands
+    - qetharp: Fix buffer overflow
+    - dbginfo.sh: Adjust for kernel 3.x
+    - dbginfo.sh: Return "1" in case of invalid options
+    - lsdasd,lscss: Suppress error messages when working on unsettled sysfs tree
+    - lsmem/chmem: Fix handling of memory holes
+    - cmsfs-fuse: Fix file size for files larger than 2 GB
+    - cmsfs-fuse: Fix block allocation for large disks with 512 byte block size
+    - cmsfs-fuse: Prevent EIO on big write requests on variable record files
+    - cmsfs-fuse: Fix contiguous writes on fixed record files
+    - cmsfs-fuse: Fix end-of-file detection for fixed record files
+    - cmsfs-fuse: Keep file state consistent if writes fails with ENOSPC
+    - cmsfs-fuse: Add support for FBA-512 disks
+    - dasdview: Fix printing of random characters after bus-ID
+    - zfcpdbf: Add "--version" option to help text
+    - zfcpdbf: Fix messages for "--include" and "--exclude" options
+    - zfcpdbf: Fix "--timediff" option
+          zfcpdbf request messages with a round-trip processing time do
+          not show warning messages. As per documentation the
+          "--timediff <DIFF>" option should show a warning message if time
+          difference between the time stamp of the response trace record and
+          fsf issued time is more than <DIFF> value.
+    - zipl: Fix SCSI dump on LPAR
+    - zipl: Fix error caused by localized script output
+    - zipl: Prevent unsupported parmfile address
+    - zipl: Improve man page description for the "--mvdump" option
+    - lsdasd: Improve tool performance for systems with many DASDs
+    - lsdasd: Show correct block size when used without root rights
+    - qethconf,lsqeth,lscss,hsnc: Exit with "0" for "--help" and "--version"
+    - lsqeth: Use ethtool instead of checksumming sysfs attribute for Linux 3.0
+          Because for kernel 3.0.0 the checksumming sysfs attribute is no longer
+          available the ethtool is used instead.
+
+1.15.0
+    Changes of existing tools:
+    - cpuplugd: Improve memory ballooning with cpuplugd
+          The cpuplugd daemon now supports more advanced control of the cmm
+          memory balloon, as well as a history function to access previous data.
+          Any data from /proc/vmstat and /proc/meminfo can now be used in rules
+          and user-defined variables.
+
+    Bug Fixes:
+    - lsluns: Show all active LUNs for "--active", not just well known LUNs
+    - lsluns: Generate a message to load "sg", if kernel module has been removed
+    - lsreipl: Prevent unnecessary error messages for empty sysfs files
+    - dasdinfo: Support current kernel versions
+    - zipl: Add sync to ensure that all data has been written to disk
+
+1.14.0
+    Changes of existing tools:
+    - fdasd: Implement new partition types
+          Besides of the present two partition types "Linux native" and
+          "Linux swap", fdasd is now able to partition DASD devices with
+          the types "Linux raid" and "Linux LVM".
+          In addition to that, the partition type can now also be specified
+          in the fdasd configuration file.
+
+    Bug Fixes:
+    - chccwdev: Skip unnecessary retry/wait loop on non-zero return code
+
+    - chccwdev: Improve error message
+
+    - dasdview: Improve command response time
+         On systems with a large number of devices the sysfs bus-ID lookup for
+         a DASD takes a long time. Now /proc/dasd/devices is used instead to
+         increase the lookup speed.
+
+    - dasdinfo: Fix exit code handling
+          For all kinds of errors exit code 1 is used now.
+
+    - cmsfs-fuse: Fix configuration file string handling
+          The configuration file string is freed twice. The double free
+          can lead to unpredictable behaviour. Remove the superfluous free
+          call.
+
+    - dbginfo.sh: Allow built-in version of vmcp (no kernel module)
+
+    - ziomon: Add check for debugfs mount point
+
+    - ziomon: Rename the long option "--output" to "--outfile"
+
+1.13.0
+    Changes of existing tools:
+    - qetharp: Support IPv6 for query ARP cache for HiperSockets
+          For HiperSockets (real and GuestLAN) in layer 3 mode, qetharp
+          is now able to show IPv6 entries. These entries are only shown
+          if qetharp is called with -6 or --ipv6 in conjunction with -q.
+
+    - zfcpdbf: Adjust tool to 2.6.38 zfcp driver changes
+          For the Linux kernel 2.6.38 the zfcp driver changed its tracing
+          infrastructure. The zfcpdbf tool is updated to work with
+          the new trace data. Note that the new tool will not be able to
+          process zfcp traces from kernels older than 2.6.38.
+
+    Bug Fixes:
+    - cmsfs-fuse:
+          * Allow opening of read-only disk images
+          * Fix read error on fixed record length file in text mode
+          * Fix read error on variable files ending with a null block
+          * Fix off-by-one error for writing fixed length records
+          * Don't update the last variable pointer for fixed files
+          * Enlarge the file system name string
+          * Delete old file if renaming to an existing file
+          * Prevent segmentation fault if $HOME is undefined
+
+    - hyptop: Fix man page typo ('r' = current weight)
+
+    - hyptop: Prevent interactive mode on s390 line mode terminals
+          To prevent hyptop starting in interactive mode on line mode
+          terminals, the TERM variable is checked. If TERM is unset
+          or set to "dumb" interactive mode is not allowed.
+
+    - cpuplugd: Fix multiplication in rule expressions
+
+1.12.0
+    Added new tool:
+    - hyptop
+
+    Changes of existing tools:
+    - cio_ignore: Add new option -i / --is-ignored
+          Add an option to the cio_ignore tool which can be used to determine
+          if a device with a given ID is on the blacklist:
+
+          # cio_ignore --is-ignored 0.0.0190
+          Device 0.0.0190 is ignored
+
+          # cio_ignore --is-ignored 0.0.0009
+          Device 0.0.0009 is not ignored
+
+    - cmsfs-fuse: Add support for configuration file
+          Add a configuration file for automatic translation from EBCIDC
+          to ASCII based on the file type.
+
+    - tunedasd: Add new option -Q / --query_reserve
+          The new option -Q / --query_reserve can be used to determine the
+          reservation status of a device.
+
+    - chreipl: Various enhancements
+          * Add support to re-IPL from named saved systems (NSS)
+          * Add support to specify additional kernel parameters for re-IPL
+          * Add "auto target" support
+          * Add support to re-IPL from device-mapper multipath devices
+
+    - zgetdump: Add kdump support for --info option
+
+    - zipl/zfcpdump_v2: Disable automatic activation of LUNs
+          With Linux 2.6.37 all available ZFCP SCSI NPIV LUNs are automatically
+          set online. For zfcpdump this has to be prevented because only the
+          dump disk should be set online. To achieve this the zfcpdump
+          application sets /sys/module/zfcp/parameters/allow_lun_scan
+          to zero before setting the ZFCP device online.
+
+    Bug Fixes:
+    - dasdfmt: Fix buffer overrun in error message for option -b
+
+    - cpuplugd: cmm_pages not set and restored correctly
+
+    - lsluns: Fix LUN reporting for SAN volume controller (SVC)
+
+    - lsluns: Uninitialized value on adapter offline
+          An error message is presented stating that some values are not
+          initialized while an operation is due. The program execution is not
+          reflecting the offline adapter status. Account for offline adapter
+          status and show an appropriate message
+
+    - lsluns: Accept uppercase and lowercase hex digits
+
+    - zgetdump: Add umount fallback for --umount option
+          If the fusermount is not installed, zgetdump now tries the umount
+          command as second choice to unmount a directory.
+
+    - fdasd/dasdfmt: Fix format 7 label
+          Backups of Linux on System z disks from z/OS do not work when the
+          disk is not fully partitioned. The format 7 label written by fdasd
+          and dasdfmt is incorrect. The extend for free space has one track
+          less than required which is recognized as inconsistent vtoc state
+          by z/OS tools. Fix libvtoc to write the format 7 label correctly.
+
+1.11.0
+    Changes of existing tools:
+    - cmsfs-fuse: Add write support
+          With this support it is possible to add, delete, and modify CMS
+          files under Linux.
+
+    - zipl: Add support for automatic menus
+          When the keyword 'defaultauto' is specified in the defaultboot
+          section of a zipl.conf file, zipl will automatically build and
+          install a boot menu including all IPL sections listed in the
+          configuration file.
+
+    - cpuplugd: Code cleanup for messages
+
+    - all: Add gcov build support
+          Extend the s390-tools build system to support gcov-based code
+          coverage measurements. To use gcov on a compiled tool, perform
+          these steps:
+          1. # make G=1
+          2. Run the tool
+          3. # gcov file.c (where file.c is the source code file for which
+                            code coverage data is requested)
+          4. Analyze gcov output written to file.c.gcov
+          See the gcov man page for a description of the gcov output format.
+          Note: gcov is only available for tools written in C and C++
+
+    Bug Fixes:
+    - dumpconf: Redirect stdout/stderr to prevent "startpar" hangs
+
+    - zfcpdbf: Rename --dates option
+          Rename "--date" to "--dates" as documented in the man page.
+
+    - chccwdev: Fix cio_settle usage when more than on device is changed
+          The chccwdev tool can operate on lists of devices. If this feature
+          is used, cio_settle is invoked too late. Use cio_settle prior to
+          parsing the list of devices.
+
+    - lsdasd: Fix return code of -h option
+
+    - ziomon: Fix return codes for -h and -v options
+
+    - ziomon: Replace deprecated "df -m" by "df -B 1M"
+          ziomon uses GNU df with the option -m. This option is deprecated. It
+          is replaced by the option "-B 1M".
+
+    - zipl dump tools: Add retry logic for subchannel status
+          In order to recover from failures like interface-control checks,
+          we now retry the I/O, if the subchannel status is not equal to "0".
+
+    - zipl: Check for maximum parmline size
+          Parmlines which exceeds the maximum size are truncated during IPL
+          which might cause problems.
+
+    - zipl: Fix heap overflow when installing large menus
+          Prevent zipl from writing menus with more than 50 entries to memory
+          beyond the allocated heap buffer.
+
+    - ttyrun: Fix argument parsing for upstart jobs
+          ttyrun fails if you use the -e option in combination with a terminal
+          that is specified using an absolute path.
+
+1.10.0
+    Changes of existing tools:
+    - znetconf: Add support for new CHPIDs OSX and OSM
+
+    - chchp: Use /proc/cio_settle
+          "cio_settle" ensures that all previously started CIO actions are
+          handled. This feature is now used in chchp and ensures that after
+          chchp returns, subsequent work of the requested action is completed
+          e.g. (de)registration of devices.
+
+    Bug Fixes:
+    - ziomon: Fix the execution of stat <file> to follow symlinks
+          Otherwise a false major:minor number is returned and the script
+          fails to resolve the matching multipath-, SCSI-device combination.
+
+    - znetconf: Fix -d|--driver option to work with latest versions of bash
+
+    - cpuplugd: Fix cmm_min/max limit checks
+          The cmm_min and cmm_max limits are not enforced correctly,
+          when starting the daemon without the -V option or when
+          cmm_pages is set manually below or above the limits.
+          This patch makes the checks independent from the -V option
+          and adds a check for cmm_pages beyond the limit.
+
+    - cpuplugd: Set cpu_min to 1 by default
+          With a cpu_min default value of 2 the "cpu ping pong" effect
+          may still be visible with low system load, i.e. expensive CPU 
+          signaling may occur if the workload is spread on 2 under-worked
+          CPUs. Therefore the default value of cpu_min is set to 1 now.
+
+    - cpuplugd: Fix stack overwrite
+          cpuplugd will terminate with "stack smashing" error on systems with
+          more than 30 CPUs. The NULL termination of a read buffer will write
+          beyond the buffer if a previous read() filled out the whole buffer.
+          This is fixed by reading only maximum buffer size - 1 bytes.
+          Also fixed some initialization errors discovered by valgrind.
+
+    - cmsfs-fuse: Fix variable record file length ending with a null block
+          If a variable record file ends with a null block, the whole block is
+          counted. That results in a wrong file size since only the length
+          as given in the variable header may be used from the null block.
+          Correct the file size by calculating the used bytes from the
+          record data of the last block.
+
+    - cmsfs-fuse: Fix memory leak in freeing cached file data
+
+    - iucvterm - iucvtty: Install signal handler for the interrupt signal
+          An established IUCV terminal connection is not disconnected when
+          iucvtty has been started in foreground and the user triggers an
+          SIGINT.  The parent process (iucvtty) exits but the child process
+          keeps running. However, handle SIGINT and stop the child process.
+
+    - iucvterm - iucvtty: Do not specify z/VM user IDs for the login program
+          Login programs use -h to specify the host name of the originator.
+          iucvtty passes the z/VM user ID for this option that might cause
+          DNS timeouts if the target system cannot reach any DNS servers.
+
+    - vmur: Revised man page and added vmur examples
+
+    - ip_watcher - xcec-bridge: Fix multicast forwarding
+          xcec-bridge was developed for the packet socket support of the qeth
+          layer 3 driver. The code assumes there are no link level headers for
+          incoming packets. The new qeth layer 3 driver has full packet socket
+          support so xcec-bridge has to account the link level header.
+          Note that this version will not be able to run with kernels older
+          than 2.6.26.
+
+    - zfcpdbf: Fix "Use of uninitialized value" and output issues,
+          add devno and timestamp to output of "status read" and
+          remove output of LS field for ELS requests; it was wrong,
+          and newer dbf does not have this redundant field.
+
+    - qethconf: Fix "ipa list" function to display devices with
+          subchannel set != 0
+
+    - vmconvert: Fix dump conversion problem for z/VM guests with DCSSes
+          For VMDUMPs of z/VM guests with DCSSes vmconvert used the
+          wrong storage size.
+
+    - chccwdev: Fix --attribute option
+
+    - chccwdev: Print message if no driver is attached to a device
+
+1.9.0
+    Added new tools:
+    - cmsfs-fuse
+    - ttyrun
+    - lsmem/chmem
+
+    Changes of existing tools:
+    - zgetdump: Add dump conversion and mount support
+          The zgetdump tool can be used now for dump format conversion.It can
+          read ELF, s390, and LKCD and write ELF and s390 format dumps.
+          A mount option based on "fuse" is added to zgetdump that allows dumps
+          to be converted in memory on the fly without the need of copying
+          them. The following two options are added to zgetdump:
+          * fmt: Specify output dump format (elf or s390)
+          * mount: Mount dump instead of copying it to standard output
+
+    - zgetdump: Remove multi-volume tape dump support
+          The capacity of todays tape cartridges is big enough for dumping
+          large systems. Therefore multi-volume tape dump support is no longer
+          needed.
+
+    - lsqeth: Add new qeth attribute "sniffer"
+
+    - chccwdev, cio_ignore: Use /proc/cio_settle
+          "cio_settle" ensures that all previously started CIO actions are
+          handled. This feature is used now in chccwdev and cio_ignore and has
+          the following effects:
+          * chccwdev:
+            Devices can be attached and set online afterwards with chccwdev
+            without the need of a delay between the commands.
+          * cio_ignore:
+            After cio_ignore returns it is now ensured that the requested
+            action is completed.
+
+    - zfcpdump_v2/vmconvert: Add CPU lowcore pointers to asm dump header
+          By adding the CPU lowcore pointers to the dump header we now
+          can access the CPU registers in dumps without needing the
+          System.map symbol information.
+
+    Bug Fixes:
+    - ziomon: Allow ziorep_config to be installed to different directories
+          The path for ziorep_config has been hard-coded to
+          "/sbin/ziorep_config" and it was checked to detect install errors.
+          However distributions may install these files in varying directories.
+          With this patch this is possible now, because the hardcoded path is
+          no longer necessary. ziorep_config now has to be installed to a
+          directory that is in the PATH variable of the caller.
+
+    - ziomon: Fix problem with long multipath device names
+          When tracing multipath devices with long names, e.g.
+          /dev/mapper/360050768018f8267c800000000000008, parsing of the 'df'
+          command output can break and result in syntax error messages on
+          the command line.
+
+    - ziomon: Fix problem with multipath command output
+          Some versions of the multipath command use characters that can
+          break parsing of its output, ultimately leading to error messages
+          like:
+            ziomon: Number of LUNs does not match number of devices: 12
+                    devices and 10 LUNs
+
+    - zipl/zfcpdump: Use "cgroup_disable=memory" kernel parameter
+          The zfcpdump kernel has to run within a 32 MB limit. When using
+          "memory cgroups" about 2.6 MB are allocated, which can lead to
+          "out of memory" kernel panic during SCSI dump. For zfcpdump we do
+          not need "memory cgroups". Therefore it is disabled via the zfcpdump
+          kernel parameter line.
+
+    - zipl: Fix tape IPL failure
+          IPL from tape after prepared by zipl stops with a disabled wait PSW.
+          zipl did not provide a reasonable address of an initrd to the loader.
+
+    - lsdasd: Add missing description of option -b to man page
+
+    - lsqeth: Determine sysfs mount point using /proc/mounts
+
+    - lsqeth: Clear print array for every device displayed
+
+    - lsluns: Move lsluns from /sbin to /usr/sbin
+          The lsluns tool uses perl that normally is installed under
+          "/usr/bin". According to LSB we also have to install the lsluns
+          tool to "/usr".
+
+    - iucvterm: Allow non-alphanumeric characters when parsing group names
+
+    - zfcpdump_v2: Use direct-IO for writing dumps
+          Using direct-IO for zfcpdump has two major advantages compared
+          to normal IO that uses the Linux page cache:
+          * On recent Linux kernel versions it is faster on small systems.
+          * Because no page cache is used, less memory is consumed.
+
+1.8.4
+    Added new tools:
+    - 60-readahead.rules: udev rules to set increased "default max readahead"
+          The current "default max readahead" defined by the kernel is too
+          small for s390. Add udev rule to set a better default value. This
+          will increase sequential read performance up to 40%.
+
+    Changes of existing tools:
+     - zipl: Improve I/O error recovery during IPL
+          Change the boot loader code to handle temporary path errors and link
+          flapping during IPL.
+
+     - zipl: Remove DEFAULT_RAMDISK_ADDRESS
+          Using the default value has been replaced by calculating the address
+          dependent on the image size.
+
+     - lsqeth: Introduce "lay'2" column for "lsqeth -p"
+          Add new qeth attribute "isolation".
+
+     - qethconf: Indicate command failure and show message list
+          When qethconf detects a bad exit status of its issued echo
+          command, an error message is presented to the user.
+          In addition possible reasons for command failure can be
+          listed with "qethconf list_msg".
+
+     - dumpconf: Prevent re-IPL loop for dump on panic
+          A new DELAY_MINUTES keyword is introduced in the dumpconf
+          configuration file. The keyword delays the activation of dumpconf to
+          prevent potential re-IPL loops.
+
+     - dbginfo: Add new attributes
+
+    Bug Fixes:
+     - cpuplugd: Fix file handling in get_cmmpages_size()
+
+     - fdasd, dasdinfo, tunedasd: Fix handling of read-only devices
+          A as long as a tool does not require write access do a block device,
+          it should open the device in read-only mode. Otherwise opening the
+          device may fail, and usability of the tool on read-only devices is
+          unnecessarily restricted.
+
+     - fdasd: Fix auto mode behavior
+          Fix the misbehavior of fdasd in case the -a or -i option is specified
+          and the label block is broken. Previously it asked interactively for
+          a new label. Now it exits with an error message.
+
+     - dasdview, fdasd: Fix floating point error for unformatted devices
+          When executed on an unformatted device the tools dasdview and fdasd
+          will end with an floating point exception error.
+          The reason for the error lies in the fact that we cannot rely on the
+          HDIO_GETGEO ioctl to report a correct number of cylinders and so we
+          compute the number of cylinders from the device size. However,
+          for unformatted devices the device size is zero and thus our
+          computation ends with a floating point exception.
+          To solve this issue read the correct number of cylinders from
+          the DASD device characteristics, which can be found in the data
+          returned by the BIODASDINFO ioctl.
+
+     - libvtoc: Fix string overflow in vtoc_volume_label_init()
+          Originally it tries to copy a 84B string into 4B field and reset also
+          the other fields through the overflow. This doesn't work with recent
+          GCC versions.
+
+     - mon_statd: Improve init script
+          * stop: Do not print error messages if a daemon is not configured.
+          * start: Do not load module if no daemon is configured.
+          * Remove useless newlines.
+
+     - lscss: Fix uppercase conversion (appeared with -u option)
+
+     - lstape: Help function returns 1, although it was successful
+          Changed exit status of "lstape --help" from 1 to 0.
+
+     - znetconf: Index into chpidtype lookup table must be hex
+          Network subchannels with CHPID type containing non-decimal digits,
+          i.e. a-f, cause lsznet.raw errors. The value of the sysfs attribute
+          "type" of a CHPID is hex, but the lookup table index in the bash
+          script must be decimal. To solve the problem, we now
+          interpret "type" as hex number when used as lookup table index.
+
+     - chreipl: Fix SIGSEGV in "chreipl node"
+          When calling "chreipl node /dev/dasdxy" chreipl crashes with SIGSEGV.
+          The problem is a missing check in get_ccw_devno_old_sysfs(). Besides
+          of that at two places strncpy() was called with the wrong size.
+
+     - chshut: Disable panic action
+          The panic action should be configured using the dumpconf service.
+          Therefore we disable the possibility to configure it with chshut in
+          order to avoid conflicts.
+
+     - lsreipl: Add missing NSS support
+
+     - vmconvert: Ensure null termination of progress bar string
+          The progress bar shows control characters at end of line, because
+          one variable responsible for the progress bar has not been
+          initialized. We now initialize this variable correctly.
+
+     - vmconvert, zfcpdump_v2: Set correct LKCD end marker flag
+
+     - zfcpdump_v2: Ignore failure of modprobe
+          It is possible that all modules are built-in the zfcpdump kernel.
+          Therefore modprobe of those modules will fail and we must not
+          check the return value.
+
+     - ziomon: ziorep_traffic/utilization return 1 when called with -h & -v
+          These two tools return 1 when -h or -v are used as arguments. Changed
+          the return code in these cases to 0.
+
+     - zipl: zfcp dump partition error
+          The info structure was used after it was freed. This leads to wrong
+          partition information on the zfcp dump device. Therefore SCSI
+          dumps may fail. To fix this, we free the info structure after last
+          usage.
+
+1.8.3
+    Changes of existing tools:
+     - zipl: Add support for device mapper devices.
+         Allow installation of and booting from a boot record on logical
+         devices, i.e. devices managed by device mapper (or similar products),
+         e.g. multipath devices.
+
+1.8.2
+    Added new tools:
+    - znetconf
+    - cio_ignore
+
+    Changes of existing tools:
+    - dasdview: Add solid state device support.
+         Extend the -c option to show if a disk is a solid state device or not.
+
+    - lscss: Also show devices on the defunct subchannel.
+
+    - all: Reworked s390-tools build process.
+
+    Bug Fixes:
+    - dumpconf: Validate DEVICE keyword, enhance error handling.
+         The DEVICE keyword is accepted in both devno and bus-ID syntax.
+         In case of invalid keywords the corresponding error messages are more
+         precise.
+
+    - zipl: Ensure that zipl is built with non-executable stack.
+         The ".note.GNU-stack" section is lost when the boot loaders in zipl
+         are built. The reason is that objcopy removes all sections except
+         of the text section: $(OBJCOPY) -O binary --only-section=.text $< $@
+         When the linker finds a object file without the .note.GNU-stack
+         section, it forces the binary to have executable stack.
+         To fix the problem, the noexecstack option is used in the link step.
+
+    - zipl: "zipl --help" does not mention "--force".
+         Add information on the "--force" option introduced together with
+         "--mvdump".
+
+    - zipl: Don't use "Error" if user answered zipl confirmation prompt with no
+         For several operations zipl issues a confirmation prompt such as
+         "Do you want to continue creating a dump partition (y/n)".
+         If the user disagrees, there should be no error indication in the
+         "Operation canceled by user." message.
+
+    - zipl:
+         * Exit when trying to run zipl on an unknown device type.
+         * Skip check for invalid geometry on FBA devices.
+         * Fix use after free error when installing a multi-volume dump.
+
+    - vmur, ziomon tools: Install tools under "/usr/sbin" instead of "/sbin".
+         Because vmur and ziomon use libstdc++ that normally is installed under
+         "/usr/lib", we have to install the tools under "/usr/sbin".
+
+    - cpuplugd: Fix cmm_pages allocation.
+         Fix cmm_pages allocation outside min and max limitation.
+
+    - dasdinfo:
+         * Strip trailing spaces from volume serials with less then 6
+           characters.
+         * Read volume serials also from CMS formatted disks.
+
+    - lsluns:
+         Fixed disk encryption check that is performed when the new "--active"
+         command line switch is used.
+
+    - zfcpdbf:
+         * Fix reading of recovery trace.
+         * Fix tag checks in reading of hba trace.
+         * Fix output of els requests in san trace.
+         * Remove color output that only works on some terminal types.
+         * Remove output of no longer existing driver flags.
+         * Remove outdated code for support of 2.4.x kernels.
+
+    - ipl_tools (lsshut):
+         Fix printing of vmcmd shutdown action: Also print CP commands that
+         have more than one word.
+
+    - all:
+         Fixed a lot of build warnings and minor bugs.
+
+1.8.1
+    Added new tools:
+    - iucvterm
+
+    Changes of existing tools:
+    - dump tools: Add support for "Automatic IPL after dump"
+         Kernels supporting the new shutdown action "dump_reipl" allow to
+         specify a re-IPL device that should be used after dump. To
+         exploit this feature the following tools have been updated:
+         - zipl dump tools:
+           Trigger IPL after dump, if specified.
+         - zfcpdump:
+           Trigger IPL after dump, if specified.
+         - dumpconf:
+           Allow to specify "dump_reipl" in case a kernel panic occurs.
+
+    - DASD related tools: Add Large Volume Support for ECKD DASDs
+         The DASD device driver with "Large Volume Support" allows to access
+         ECKD DASD devices with more than 65520 cylinders. To exploit this
+         feature the following tools have been updated:
+         - dasdfmt
+         - fdasd
+         - dasdview
+         - zipl
+         - zipl dump tools
+
+    - ziomon: Add report utilities
+         New tools ziorep_config, ziorep_traffic and ziorep_utilization
+         for performance data report generation are added.
+
+    - vmur: Add "--convert" option
+         With this option a VMDUMP file can be converted into the LKCD dump
+         format while receiving it from the z/VM reader. LKCD dumps
+         can be processed by the Linux dump analysis tools lcrash and crash.
+
+    - lsluns: Add "--active" option
+         With this option all activated LUNs are shown. In addition LUN
+         encryption information is provided.
+
+    - dasdview: Add "--characteristic" option
+         With this option a list of hardware specific DASD characteristics is
+         shown. Currently only the encryption status is shown, this may
+         be extended for future releases.
+
+    - tunedasd: Normalize profile data
+         Change the scaling of DASD profile data from binary to decimal
+         shifting. Also print the scaling factor.
+
+    - qetharp, qethconf, osasnmpd and lsqeth:
+         removed 2.4 supporting code
+
+    - dasdfmt: Add "--norecordzero" option
+         With this option the permission for the subsystem to format record
+         zero is removed.
+
+    - dasdfmt: Add "--percentage" option
+         With this option one line for each formatted cylinder is printed
+         showing the number of the cylinder and percentage of formatting
+         process.
+
+    Bug Fixes:
+    - zipl dump tools:
+         The 31-bit dump tools did not update the address portion of the
+         disabled wait psw with the error code. This omission has been fixed.
+
+    - zipl dump tools:
+         FBA dump tool can only dump up to 4GB. When dumping a Linux system
+         with more than 4GB on a FBA disk, a corrupt dump is generated, where
+         the first 4GB of memory are repeatedly dumped. The problem is that
+         the dumper code uses two 32 bit instructions, where 64 bit
+         instructions are required. To fix the problem 64 bit instructions are
+         used now.
+
+    - Remove -s option from install sections in Makefiles
+         Because the binaries have been stripped in the install step, the
+         debug info was not available for rpmbuild. Therefore the -s option
+         has been removed now.
+
+    - Improve LSB (Linux Standard Base) compliance of init scripts
+
+    - tape390_display:
+         The command  "tape390_display <message1> <message2> <node>" can cause
+         message "stack smashing detected" if <message2> contains exactly
+         eight characters. This stack overwrite has been fixed.
+
+    - lscss:
+         Don't print newline for availability attributes containing blanks.
+
+    - chccwdev:
+         Suppress bash error message, if device is gone between test and
+         read of online attribute. Exit with error if no device was found
+         in a given range.
+
+    - chccwdev, lscss, lstape:
+         Add missing "-v" and "-V" (lstape) options.
+
+    - chchp:
+         Improve value checking.
+
+    - dasdinfo:
+         Fix handling of new sysfs layout. Due to changes in the sysfs
+         dasdinfo did not find a block device to a given busid. Changed
+         dasdinfo to accept the new and the old sysfs layout.
+
+1.8.0
+    Added new tools:
+    - ipl_tools (lsreipl, chreipl, lsshut, chshut)
+    - ziomon tools
+    - lszcrypt
+    - chzcrypt
+    - lsluns
+
+    Changes of existing tools:
+    - zfcpdump_v2: Add support for memory holes
+         zfcpdump was not prepared to deal with multiple, non-contiguous
+         storage extents. This shortcoming has been fixed by introducing
+         a new debugfs file zcore/memmap which contains information on
+         start address and length of memory chunks.
+
+    - zfcpdump_v2: Update to latest e2fsprogs (1.41.3) and kernel (2.6.27)
+         versions.
+
+    - zipl: Support for virtio devices
+         This feature allows zipl to prepare virtio devices for ipl and dump.
+
+    - zipl dump tools: Add multi volume support
+         This feature adds the ability to dump on multiple ECKD DASD devices,
+         which can be necessary, if the system memory size is larger than
+         the size of a single DASD device.
+
+    - lscss: Support for non I/O subchannels
+         lscss now shows non I/O subchannels. New options to limit the output
+         to ranges of subchannels or devices have been added.
+
+    - lstape: Add SCSI tape support
+         With this feature it is now possible to list installed SCSI tapes
+         besides channel attached tapes.
+
+    - ip_watcher: New qeth driver support
+         Adapt ip_watcher to support sysfs interface of the qeth driver.
+         This is necessary to support the new implementation of the qeth driver
+         (kernel 2.6.26).
+
+    - osasnmpd: New qeth driver support
+         Adapt osasnmpd to new implementation of qeth driver (kernel 2.6.26),
+         which does no longer offer the sysfs attribute notifier_register.
+         Notification of added or removed OSA-cards now has to be done in
+         user space (udev). The udev rule file '57-osasnmpd.rules' is
+         provided now in the s390-tools package.
+
+    - dbginfo.sh:
+         Collect additional system information.
+
+    Bug Fixes:
+    - zipl dump tools:
+         The tape dump tool provided incorrect input for the progress message.
+         For memory sizes larger than 4G the progress message display stopped
+         at 3584M thus leaving the user in doubt, whether the dump tool is
+         still dumping or not.
+
+    - zfcpdump_v2:
+         With kernels 2.6.26 or above, the port_add attribute has been
+         removed which caused "Dump to SCSI disk" to fail with following
+         message:
+            ERROR: Could not open /sys/bus/ccw/drivers/zfcp/<bus_id>/port_add
+            No such file or directory 
+         This has now been fixed.
+
+    - lsdasd:
+        - correct presentation of DASD HPAV alias devices 
+        - improve performance of script
+        - correct bug with non-privileged users
+        - adaption to sysfs rules
+        - improve usability
+
+    - cpuplugd/mon_statd:
+         Fix "Required Start/Stop" dependencies.
+
+    - cpuplugd:
+         A bug which prevented CPUs from being set online again after
+         /etc/init.d/cpuplugd reload and restart has been fixed.
+
+1.7.0:
+    Changes of existing tools:
+    - zipl: IPL-retry on IFCC.
+         This feature causes the hardware to retry a CCW IPL operation on an
+         alternate channel-path if an interface-control check is detected
+         during execution of the CCW IPL operation.
+
+    - zipl: Boot menu can be used to replace kernel parameter string
+         zipl's boot menu for DASD devices has been changed to allow replacing
+         the complete kernel parameter string with user input when the first
+         character of user input is an equal sign ('=').
+
+    - cpuplugd: Enhanced configuration file parser
+         The parser of cpuplugd has been enhanced to provide more hints to
+         the user at which entry in the configuration file a configuration
+         error occurred.
+
+    - dumpconf: Add VMCMD support
+         The dumpconf init script now exploits the new "shutdown actions
+         interface" introduced with vanilla Linux kernel 2.6.25. Up to
+         five VM commands can be specified to be triggered in case of
+         a kernel panic.
+
+    - mon_fsstatd: Remove init script and sysconfig file
+         mon_fsstatd init script and sysconfig file are replaced by
+         mon_statd, which controls both monitor daemons mon_fsstatd and
+         mon_procd.
+
+    - lszfcp: Source code cleanup
+
+1.6.3:
+    Added new tool:
+    - cpuplugd
+
+    Changes of existing tools:
+    - dasdinfo: New -x/--extended-uid option.
+         With the PTF for APAR VM64273 installed, z/VM provides a unique
+         identifier that allows to distinguish between virtual disks which
+         are defined on the same real device. This identifier will be part
+         of the UID. To allow for an easier upgrade, the original -u/--uid
+         option will print the UID without this token and the
+         -x/--extended-uid will return the full UID.
+
+1.6.2:
+    Added new tools:
+    - vmur
+    - lschp
+    - chchp
+    - zfcpdump_v2
+    - mon_procd (with new mon_statd init script and sysconfig file)
+
+    Changes of existing tools:
+    - Use "-O3" compile option for all tools.
+    - Update zipl to enable zfcpdump_v2.
+
+1.6.0:
+    Added new tools:
+    - tape390_crypt
+    - mon_fsstatd
+    - dumpconf
+    - dasdinfo
+    - 59-dasd.rules
+
+    Changes of existing tools:
+    - DASD/Tape dump tools:
+      SCLP console support to show dump progress on the operator console.
+
+    - zgetdump:
+      New -d option to check if DASD is a valid dump device.
+
+    - No more XML in zfcpdump:
+      Because XML is going to be obsolete, we now use the binary parameter
+      block provided by the hardware to find out on which scsi disk the dump
+      should be created.
+
+    - dbginfo.sh:
+      Collect additional system information.
+
+    - No libsysfs in DASD tools:
+      It turned out that using libsysfs is less stable than using the sysfs
+      attributes directly. Therefore the libsysfs dependency has been removed.
+
+    - Removed '-c' option of lsqeth.
+
+    - Unification of 'invalid option' error messages, Makefiles and "-v" output
+      for all tools.
+
+1.5.2:
+    Added new tools:
+    - lszfcp
+    - scsi_logging_level
+
+1.5.0:
+     Added new tool:
+     - vmcp: tool for accessing the control program of z/VM using the
+          kernel module 'vmcp'.
+
+     - zfcpdbf: perl script to filter ZFCP debug (DBF) data.
+
+     Added new features for existing tools:
+     - vmconvert: 64bit support.
+          Enhance vmconvert that it can convert the new 64bit format
+          z/VM dumps in addition to the old format dumps.
+
+     - osasnmpd: implement long options
+          For for all options now also long options have been implemented
+          using the "getopt_long" function.
+
+     - dasdxxxx: DASD tool harmonization
+          Some changes are applied to dasdfmt, fdasd and dasdview either to
+          make the syntax more common to other Linux tools or to introduce
+          small enhancements to get better usability.
+
+     - zfcpdump: Update SCSI System Dumper
+          Replaced the old Linux 2.4.19 kernel with Linux 2.6.12 and
+          e2fsprogs version 1.32 with version 1.37.
+          The busybox will be removed completely, since the functionality
+          provided by busybox will be implemented manually.
+
+     - dbginfo.sh: collect additional debug output.
+          fixed collection of s390dbf files which moved to debugfs.
+          Changed behavior when trying to detect the kernel version.
+
+1.4.0:
+     Added new tool:
+     - zconf/lsqeth: shell script to list all QETH based networking devices
+
+     Added new features for existing tools:
+     - dbginfo.sh: collect additional debug output,
+          corrected/changed command line handling
+
+     - zipl: added --dry-run function
+          This function can be used to simulate a zipl run without modifying
+          an existing IPL record.
+
+     - zipl: dump support for memory holes. Enables dumping for z/VM guests
+          with fragmented storage (defined with z/VM command
+          'define storage config').
+
+     - dasd tools: minor enhancements, rework and harmonization of the
+          command line options
+
+1.3.2: Added new tool:
+     - vmconvert
+     Added new features for existing tools:
+     - zipl: FBA dump support
+
+1.3: Added new tools:
+     - zconf (chccwdev,lscss,lsdasd,lstape)
+     - tunedasd
+
+     Added new features for existing tools:
+     - zipl: multi boot, IPL from tape, custom dump size limit
+     - dbginfo.sh: adaptions for Linux 2.6
+
+1.2.2: Added new tool:
+     - ip_watcher/start_hsnc
+
+1.2: Added new tools:
+     - qethconf
+     - zfcpdump
+
+     Added new features for existing tools:
+     - zipl: zfcp scsi ipl and dump support
+     - qetharp: static ARP support
+     - tape390_display: new tape load option and new message types
+
+1.1: Added new tools:
+     - dbginfo.sh
+     - osasnmpd
+     - qetharp
+     - tape390_display
+
+1.0: Initial s390-tools release containing:
+     - dasdfmt
+     - dasdview
+     - fdasd
+     - zgetdump
+     - zipl

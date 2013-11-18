@@ -1,0 +1,74 @@
+#!/bin/bash
+
+CMD=${0##*/}
+VERSION="%S390_TOOLS_VERSION%"
+
+function print_help()
+{
+	cat <<-EOD
+Usage: $CMD <options>
+
+List information about available Storage Class Memory Increments.
+
+-h, --help               Print this help, then exit
+-v, --version            Print version information, then exit
+EOD
+}
+
+function print_version()
+{
+    echo -ne "$CMD: version $VERSION\nCopyright IBM Corp. 2012\n"
+}
+
+
+# Parse command line parameters
+while [ $# -gt 0 ]; do
+	case $1 in
+	-h|--help)
+		print_help
+		exit 0
+		;;
+	-v|--version)
+		print_version
+		exit 0
+		;;
+	-*|--*)
+		echo "$CMD: Invalid option $1" >&2
+		echo "Try '$CMD --help' for more information." >&2
+		exit 1
+		;;
+	*)
+		echo "$CMD: Invalid argument $1" >&2
+		echo "Try '$CMD --help' for more information." >&2
+		exit 1
+		;;
+	esac
+	shift
+done
+
+
+echo "SCM Increment    Size    Name  Rank D_state O_state Pers ResID"
+echo "--------------------------------------------------------------"
+find /sys/bus/scm/devices/ -type l 2> /dev/null | sort -t/ -k6 |
+while read SCM ;do
+    ADDR=${SCM##*/}
+    BLKDIR=$SCM/block/scm*
+    if [ -d $BLKDIR ] ;then
+	set - $BLKDIR
+	NAME=${1##*/}
+    else
+	NAME="N/A"
+    fi
+
+    read SIZE 2> /dev/null < $BLKDIR/size || SIZE=0
+    SIZE=$((SIZE/2048)) # (SIZE * 512) / 1024^2
+
+    read RANK 2> /dev/null < $SCM/rank || continue
+    read DSTATE 2> /dev/null < $SCM/data_state || continue
+    read OSTATE 2> /dev/null < $SCM/oper_state || continue
+    read PERS 2> /dev/null < $SCM/persistence || continue
+    read RES 2> /dev/null < $SCM/res_id || continue
+
+    printf "%s %5sMB %-5.5s %4d %7d %7d %4d %5d\n" \
+	"$ADDR" "$SIZE" "$NAME" "$RANK" "$DSTATE" "$OSTATE" "$PERS" "$RES"
+done

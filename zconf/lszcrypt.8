@@ -1,0 +1,118 @@
+.TH LSZCRYPT 8 "AUG 2008" "s390-tools"
+.SH NAME
+lszcrypt \- display zcrypt device and configuration information
+.SH SYNOPSIS
+.TP 9
+.B lszcrypt
+.RB "[ " -V " | " -VV " | " -VVV " ] "
+[
+.I <device id>
+[...]]
+.TP
+.B lszcrypt
+.B -c
+<device id>
+.TP
+.B lszcrypt -b
+.TP
+.B lszcrypt -h
+.TP
+.B lszcrypt -v
+.SH DESCRIPTION
+The
+.B lszcrypt
+command is used to display information about cryptographic adapters managed by
+zcrypt and the AP bus attributes of zcrypt. Displayed information depends on the
+kernel version.
+.B lszcrypt
+requires that sysfs is mounted.
+.P
+The following information can be displayed for each cryptographic
+adapter: card type (symbolic), online status, hardware card
+type (numeric), installed function facilities, card capability, hardware
+queue depth, request count, number of requests in hardware queue, and
+the number of outstanding requests.
+The following AP bus attributes can be displayed: AP domain,
+configuration timer, poll thread status, poll timeout, and AP interrupt
+status.
+.SH OPTIONS
+.TP 8
+.B -V, --verbose
+Increases the verbose level for cryptographic adapter information.
+The maximum verbose level is three. At verbose level one card type
+and online status are displayed. At verbose level two card type,
+online status, hardware card type, hardware queue depth, and
+request count are displayed. At verbose level three card type,
+online status, hardware card type, hardware queue depth,
+request count, pending request queue count, outstanding
+request queue count, and installed function facilities are displayed.
+.TP 8
+.B <device id>
+Specifies a cryptographic adapter to display. A cryptographic
+adapter can be specified either in decimal or hexadecimal notation using
+a '0x' prefix. If no adapters are specified information about all available
+adapters is displayed.
+.TP 8
+.B -b, --bus
+Displays the AP bus attributes and exits.
+.TP 8
+.B -c, --capability <device id>
+Shows the capabilities of a cryptographic adapter of hardware type 6 or
+higher. The capabilities of a cryptographic adapter depend on the card
+type and the installed function facilities. A cryptographic adapter can
+provide one or more of the following capabilities:
+.RS
+.IP "o" 3
+RSA 2K Clear Key
+.IP "o"
+RSA 4K Clear Key
+.IP "o"
+CCA Secure Key
+.IP "o"
+Long RNG
+.RE
+.TP 8
+.B -h, --help
+Displays help text and exits.
+.TP 8
+.B -v, --version
+Displays version information and exits.
+.SH EXAMPLES
+.TP
+.B lszcrypt -V
+Displays card type and online status of all available cryptographic
+adapters.
+.TP
+.B lszcrypt -VV 0 1 10 12
+Displays the card type in hexadecimal notation, online status,
+hardware card type, hardware queue depth, and request count for
+cryptographic adapters 0, 1, 10, and 12 in decimal notation.
+.TP
+.B lszcrypt -VVV 3 7 11
+Displays the card ID and the installed function facility in
+hexadecimal notation, as well as card type, online status, hardware
+card type, hardware queue depth, request count, pending request
+queue count, and outstanding request queue count for cryptographic
+adapters 3, 7, and 11 in decimal notation.
+.TP
+.B lszcrypt -b
+Displays AP bus information.
+.TP
+.B lszcrypt -c 7
+.RS
+.br
+Coprocessor card07 provides capability for:
+.br
+CCA Secure Key
+.br
+RSA 4K Clear Key
+.br
+Long RNG
+.RE
+.SH SEE ALSO
+\fBchzcrypt\fR(8)
+.SH AUTHOR
+.nf
+This man-page was written by Ralph Wuerthner <rwuerthn@de.ibm.com> and
+Felix Beck <felix.beck@de.ibm.com>.
+.fi

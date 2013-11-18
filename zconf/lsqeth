@@ -1,0 +1,483 @@
+#!/bin/bash
+########################################################################
+#  File...........: lsqeth
+#  Author(s)......: Steffen Thoss	<thoss@de.ibm.com>
+#  		    Peter Tiedemann	<ptiedem@de.ibm.com>
+#  Copyright IBM Corp. 2004, 2012
+#
+#  History of changes:
+#
+#  This shell script displays all QETH devices out of the sys filesystem
+#  on one page
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+########################################################################
+ 
+#Global variables
+script_name=${0##*/}                     # name of this script
+format=0
+device=0				 # device name specified by user
+sysfs_mp=`cat /proc/mounts |grep -m1 "sysfs" | cut -f 2 -d " "`
+device_dir="$sysfs_mp/bus/ccwgroup/drivers/qeth" 	 # sysfs entry
+interface_dir="$sysfs_mp/class/net/" 	 # sysfs entry
+qeth_devices=0				 # includes all qeth based devices
+device_list=0				 # list of available devices
+QETHCONF="/sbin/qethconf"
+# Array for format (/proc/qeth like) output
+format_array=( cdev0 cdev1 cdev2
+	       chpid
+	       if_name
+	       card_type
+	       portno
+	       checksumming
+	       priority_queueing
+	       route4 route6
+	       layer2
+	       buffer_count )
+# Array for normal output (only for sysfs systems)
+output_array=( if_name
+	       card_type
+	       cdev0 cdev1 cdev2
+	       chpid
+	       online portname
+	       portno
+	       route4 route6
+	       checksumming
+	       state
+	       priority_queueing
+	       detach_state
+	       fake_ll fake_broadcast
+	       buffer_count
+	       add_hhlen
+	       layer2
+	       large_send
+	       isolation
+	       hsuid
+	       sniffer )
+# Array for sysfs values
+sysfs_entries=( "sw checksumming" "hw checksumming" "no checksumming"
+		"always queue 0" "always queue 1"
+		"always queue 2" "always queue 3"
+		"by precedence" "by type of service"
+		"primary router" "secondary router"
+		"primary connector+" "primary connector"
+		"secondary connector+" "secondary connector"
+		"multicast router+" "multicast router" )
+# Array for ipa entries
+ipa_array=0
+# Array for vipa entries
+vipa_array=0
+# Array for parp entries
+parp_array=0
+
+#---------------------------------------
+# --           functions              --
+#---------------------------------------
+
+function PrintVersion
+{
+	echo "$script_name: version %S390_TOOLS_VERSION%"
+	echo "Copyright IBM Corp. 2003, 2013"
+}
+
+
+#
+# exit script on error and print usage hint
+#
+function __exit_on_error
+{
+   echo "Try '$script_name --help' for more information."
+   exit 1
+}
+
+function __no_such_device
+{
+   echo "$script_name: $1 no such device"
+   exit 1
+}
+
+function __no_such_parameter
+{
+   echo "$script_name: wrong parameter $1"
+   __usage
+   exit 0
+}
+#
+# function for printing the usage message
+#
+function __usage
+{
+    printf '%s %s %s\n\n' "Usage:" $script_name "[-p] [--help] [<INTERFACE>]"
+    printf '  %s\n'   "Description:"
+    printf '                %s\n\n' "The shell script list all QETH based networking devices."
+    printf '                %s\n\n' "-p | --proc: list all devices in /proc/qeth format"
+    printf '  %s\n' "<INTERFACE>:  List only attributes of specified interface."
+    exit 0
+}
+
+#
+# check given parameters
+#
+function __check_input_parameter
+{
+   if [ "$#" -gt 2 ]; then
+    	echo "$script_name: invalid number of parameters specified"
+    	__exit_on_error
+   fi
+
+
+   if [ "$#" -ne 0 ]; then
+	case "$1" in
+		--help | -h ) __usage;;
+		-p | --proc 	) format=1
+			  if [ "$#" -eq 2 ];then
+				  if [ -d $interface_dir$2 ];then
+					device=$2
+			  	  else
+					__no_such_device $2
+				  fi
+			  fi;;
+		-v | --version ) PrintVersion
+				 exit 0;;
+		-*	) echo "$script_name: Invalid option $1"
+			__exit_on_error;;
+	 	*	) format=0
+			  if [ "$#" -eq 2 ]; then
+			 	__no_such_parameter "$1"
+			  elif [ "$#" -eq 1 ]; then
+			  	if [ -d $interface_dir$1 ];then
+					device=$1
+			  	else
+					__no_such_device $1
+			  	fi
+			  fi;;
+	esac
+   fi
+}
+
+
+#
+# initialize format_array_print
+#
+function __init_format_array_print
+{
+	local k=0
+
+	while [ $k -lt ${#output_array[@]} ];
+	do
+		format_array_print[$k]=''
+		k=$((k+1))
+	done
+}
+
+#
+# search value in format_array
+#
+function __array_pos
+{
+	if [ -z "$1" ];then
+                return 100
+        fi
+
+	case  "$2" in
+		0 | 2 ) temp_array=( ${output_array[@]} );;
+		1 ) temp_array=( ${format_array[@]} );;
+	esac
+	local k=0
+	while [ $k -lt ${#temp_array[@]} ];
+		do
+			if [ $1 = ${temp_array[$k]} ]; then
+				return $k
+			fi
+			k=$((k+1))
+		done
+   	return 100
+}
+
+#
+# format output cat /proc/qeth like
+#
+function __print_proc_format
+{
+	local count=0
+	local countb=0
+	local countc=3
+
+	#
+	# include all /proc/qeth entries
+	#
+	procfs_entries=( "sw" "hw" "no" "always_q_0" "always_q_1"
+			 "always_q_2" "always_q_3" "by_prec." "by_ToS"
+		         "pri" "sec" "p+c" "p.c" "s+c" "s.c" "mc+" "mc" )
+
+	 for i in 7 8 9 10
+		 do
+			 count="${#sysfs_entries[*]}"
+			 countb=0
+			 while [ "$count" -gt 0 ]
+				 do
+				     if [ "${sysfs_entries[$countb]}" = "${format_array_print[$i]}" ]; then
+					 	format_array_print[$i]=${procfs_entries[$countb]}
+				    fi
+				    count=$((count-1))
+				    countb=$((countb+1))
+			  	 done
+		 done
+
+	# print device data
+	printf '%-27s' "${format_array_print[0]}/${format_array_print[1]}/${format_array_print[2]}"
+	for j in 6 11 15 5 7 11 5 5 6 5
+		do
+			if [ "$countc" -eq 3 ]; then
+				printf "%-${j}s" "x${format_array_print[$countc]}"
+			else
+				if [ "${format_array_print[$countc]}" = '' ]; then
+					format_array_print[$countc]='n/a'
+				fi
+				printf "%-${j}s" "${format_array_print[$countc]}"
+			fi
+			countc=$((countc+1))
+		done
+	 printf '\n'
+}
+
+#
+# print details on a VSWITCH or GuestLAN
+# Format:
+#    <LAN type>: <owner> <lanname> (Type: <type>)
+# Examples:
+#    VSWITCH: SYSTEM VSWtoLAN (Type: QDIO)
+#    GuestLAN: SYSTEM LAN01 (Type: HIPERS)
+#    LAN: not coupled (Type: HIPERS)
+#
+function __print_LAN
+{
+   local rc;
+   local devno=${1##*.};
+   local result;
+
+   modprobe vmcp >/dev/null 2>&1
+   result="`vmcp QUERY VIRTUAL NIC $devno | head -2 | tail -1 | awk '{print $3" "$4" "$5}'`";
+   if [ "${result:0:3}" == "LAN" ]; then
+      if [ "${result:5:11}" == "* Internal" ]; then
+         result="GuestLAN: not coupled";
+      else
+         result="GuestLAN: ${result:5}";
+      fi
+   fi
+   result="$result (`vmcp QUERY VIRTUAL NIC $devno | head -1 | awk '{print $3" "$4}'`)";
+
+   echo "$result";
+}
+
+#
+# print new format output
+#
+function __print_normal_format
+{
+	local count=0
+	local countc=1
+	local countb=0
+	local countd=0
+	local temp=0
+	local m
+	local is_in_layer2_list=0
+	local rc=0
+
+	countd=${#output_array[@]}
+	countd=$((countd-1))
+
+	printf 'Device name                  : %-20s\n' "${format_array_print[0]}"
+	echo '-------------------------------------------------------------------------'
+
+	while [ "$countc" -le "$countd" ]
+		do
+			if [ -e "$interface_dir$1/device/layer2" ]; then
+			 if [ `cat "$interface_dir$1/device/layer2"` = 1 ]; then
+				__layer2_print ${output_array[$countc]} $1
+				rc=$?
+			 fi
+			fi
+			if [ "${format_array_print[$countc]}" != '' ] && [ "$rc" = 0 ]; then
+				if [ "${output_array[$countc]}" == "card_type" ] && \
+					[[ "${format_array_print[$countc]:0:8}" == "GuestLAN" \
+					   || "${format_array_print[$countc]:0:8}" == "Virt.NIC" ]]; then
+						printf '        %-20s : ' "${output_array[$countc]}"
+						__print_LAN ${format_array_print[2]}
+				else
+				   printf '        %-20s : %s\n' "${output_array[$countc]}" \
+				     "${format_array_print[$countc]}"
+				fi
+			fi
+			countc=$((countc+1))
+		done
+
+	for k in  'ipa' 'vipa' 'parp'
+		do
+			case "$k" in
+				ipa ) temp=( ${ipa_array[@]} )
+				      m="ipa";;
+				vipa ) temp=( ${vipa_array[@]} )
+				      m="vipa";;
+				parp ) temp=( ${parp_array[@]} )
+				      m="parp";;
+			esac
+			if [ "$temp" != 0 ]; then
+				count=0
+				countb=0
+				while [ "$count" -lt ${#temp[*]} ]
+					do
+						if [ "$countb" -gt 0 ]; then
+							printf '                                : %s\n' "${temp[$count]}"
+						else
+							printf '        %-20s : %s\n' $m "${temp[$count]}"
+						fi
+						count=$(($count+1))
+						countb=$(($countb+1))
+					done
+			fi
+		done
+}
+
+#
+# check if value should be printed because layer2 is enabled
+#
+function __layer2_print
+{
+	del_layer2=( route4 route6 large_send
+		     fake_ll fake_broadcast
+		     checksumming hsuid sniffer )
+
+	for l in ${del_layer2[@]}
+ 		do
+			if [ "$1" = "$l" ]; then
+				return 1
+			fi
+		done
+	return 0
+}
+#---------------------------------------
+# --           main                   --
+#---------------------------------------
+
+__check_input_parameter "$@"
+
+#
+# Check if qethconf is installed
+#
+if [ ! -e "$QETHCONF" ] && [ $format != 1 ]; then
+	echo "WARNING: qethconf is not installed !"
+	echo "         No ipa_takeover, vipa or parp entries will be displayed."
+	echo ""
+fi
+
+#
+# get device list
+#
+if [ $device != 0 ]; then
+ 	device_list="`ls -ld $interface_dir$device/device/cdev0`"
+	device_list="${device_list##*/}"
+else
+	device_list="`ls $device_dir | grep [?\.?\.*]`"
+fi
+
+device_list_temp="`ls $interface_dir`"
+
+if [ $format = 1 ]; then
+	echo "devices                    CHPID interface  cardtype       port chksum prio-q'ing rtr4 rtr6 lay'2 cnt"
+	echo "-------------------------- ----- ---------- -------------- ---- ------ ---------- ---- ---- ----- -----"
+fi
+#
+# list entries for device
+#
+for k in ${device_list}
+	do
+	__init_format_array_print
+	if_name="`cat $device_dir/$k/if_name`"
+	if [ -z "$if_name" ]; then
+		if_name=0
+	fi
+	checksumming="`cat $device_dir/$k/checksumming 2>/dev/null`"
+	if [ -z "$checksumming" ]; then
+		format_array_print[7]="sw"
+		if [ "$if_name" != 0 ]; then
+			/sbin/ethtool -k $if_name | grep "rx-checksumming: on" > /dev/null
+			if [ $? -eq 0 ]; then
+				format_array_print[7]="hw"
+			fi
+		fi
+	fi
+	route4="`cat $device_dir/$k/route4 2>/dev/null`"
+	if [ -z "$route4" ]; then
+		format_array_print[9]="n/a"
+	fi
+	route6="`cat $device_dir/$k/route6 2>/dev/null`"
+	if [ -z "$route6" ]; then
+		format_array_print[10]="n/a"
+	fi
+
+	__array_pos "$if_name" "$format"
+	rc=$?
+	if [ $rc != 100 ];then
+		format_array_print[$rc]=${device_temp##*/}
+        fi
+	for i in `ls $device_dir/$k`
+		do
+			# is file a directory (in our case this may happen for the cuu)
+			if [ -h $device_dir/$k/$i ]; then
+				device_temp="`ls -ld $device_dir/$k/$i`"
+				__array_pos "$i" "$format"
+				rc=$?
+				if [ $rc != 100 ];then
+					format_array_print[$rc]="${device_temp##*/}"
+				fi
+			# call qethconf if ipa/vipa/parp
+			elif [ "$i" = 'ipa_takeover' ] || [ "$i" = 'rxip' ] || [ "$i" = 'vipa' ]; then
+				if [ $format = 0 ] || [ $format = 2 ]; then
+					if [ "$i" = 'ipa_takeover' ] && [ -e "$QETHCONF" ]; then
+						i='ipa'
+						ipa_array=( `$QETHCONF list_all | grep $if_name | grep ^$i | \
+						sed -e s/$if_name//g | sed -e s/add//g | sed -e s/[' '$i]//g` )
+					elif [ "$i" = 'rxip' ] && [ -e "$QETHCONF" ]; then
+							i='parp'
+						parp_array=( `$QETHCONF list_all | grep $if_name | grep ^$i | \
+						sed -e s/$if_name//g | sed -e s/add//g | sed -e s/[' '$i]//g` )
+					elif [ -e "$QETHCONF" ]; then
+						vipa_array=( `$QETHCONF list_all | grep $if_name | grep ^$i | \
+						sed -e s/$if_name//g | sed -e s/add//g | sed -e s/[' '$i]//g` )
+					fi
+				fi
+			else
+				# show all other entries if they are not n/a and readable
+				device_temp="`cat $device_dir/$k/$i 2> /dev/null`"
+				if [ "$?"  -eq 0 ]; then
+					if [ "$device_temp" = 'n/a' ] && [ "$i" = 'route6' ]; then
+						format_array_print[10]="no"
+				        elif [ "$device_temp" != 'n/a' ]; then
+						__array_pos "$i" "$format"
+						rc=$?
+						if [ $rc != 100 ]; then
+							format_array_print[$rc]=${device_temp##*/}
+						fi
+					fi
+				fi
+			fi
+	done
+case "$format" in
+	1 ) __print_proc_format;;
+	0 ) __print_normal_format $if_name
+	    echo '';;
+esac
+done

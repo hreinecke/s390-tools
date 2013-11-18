@@ -1,0 +1,279 @@
+#!/bin/bash
+#==============================================================================
+# Copyright IBM Corp. 2012.
+#
+# lszcrypt
+#
+# Script to display zcrypt devices and configuration settings.
+#
+# Author(s): Ralph Wuerthner <rwuerthn@de.ibm.com>
+#	     Felix Beck <felix.beck@de.ibm.com>
+#	     Holger Dengler <hd@linux.vnet.ibm.com>
+#
+# This file is part of s390-tools
+#
+# s390-tools is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# s390-tools is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with s390-tools; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#==============================================================================
+
+CMD="$( basename $0 )"
+
+CAP_RSA2K="RSA 2K Clear Key"
+CAP_RSA4K="RSA 4K Clear Key"
+CAP_CCA="CCA Secure Key"
+CAP_RNG="Long RNG"
+
+let MASK_RSA4K=0x60000000
+let MASK_COPRO=0x10000000
+let MASK_ACCEL=0x08000000
+
+function print_usage() {
+	cat <<-EOF
+	Usage: $CMD [<options>] [<cryptographic adapter ids>]
+	       $CMD -c|--capability <cryptographic adapter id>
+	Display zcrypt device and configuration information.
+
+	<options>
+	-b|--bus
+	        Show AP bus attributes and exit.
+	-c|--capability <cryptographic adapter id>
+	        Shows the capabilities of a cryptographic adapter.
+	-V|--verbose
+	        Increase verbose level for cryptographic adapter information. Maximum
+	        verbose level is three.
+	-v|--version
+	        Show version information and exit.
+	-h|--help
+	        Show this help text and exit.
+
+	<cryptographic adapter ids>
+	List of cryptographic adapter ids separated by blanks which will be displayed.
+	If no ids are given all available adapters are displayed.
+	EOF
+}
+
+function print_version() {
+    cat <<-EOF
+	$CMD: version %S390_TOOLS_VERSION%
+	Copyright IBM Corp. 2012
+	EOF
+}
+
+invalid_cmdline() {
+    echo "$CMD: $*" >&2
+    echo "Try '$CMD --help' for more information." >&2
+    exit 1
+}
+
+show_bus() {
+    AP="$SYSFS/bus/ap"
+    DOMAIN="$( cat $AP/ap_domain 2> /dev/null )"
+    CONFIG_TIME="$( cat $AP/config_time 2> /dev/null )"
+    POLL_TIMEOUT="$( cat $AP/poll_timeout 2> /dev/null )"
+    if [ "$( cat $AP/poll_thread 2> /dev/null )" -eq 1 ] ; then
+	POLL_THREAD="enabled"
+    else
+	POLL_THREAD="disabled"
+    fi
+    if [ "$( cat $AP/ap_interrupts 2> /dev/null )" -eq 1 ] ; then
+	AP_INTERRUPTS="enabled"
+    else
+	AP_INTERRUPTS="disabled"
+    fi
+    echo "ap_domain=$DOMAIN"
+    if [ -f "$AP/ap_interrupts" ] ; then
+	echo "ap_interrupts are $AP_INTERRUPTS"
+    fi
+    echo "config_time=$CONFIG_TIME (seconds)"
+    echo "poll_thread is $POLL_THREAD"
+    if [ -f "$AP/poll_timeout" ] ; then
+	echo "poll_timeout=$POLL_TIMEOUT (nanoseconds)"
+    fi
+}
+
+show_capability() {
+    CARD="$( printf "card%02x" "$1" 2> /dev/null )"
+    DEV=$SYSFS/devices/ap/$CARD
+    if [ ! -d $DEV ] ; then
+	echo "$CMD: error - cryptographic adapter $CARD does not exist!" >&2
+	exit 1
+    fi
+    HWTYPE="$( cat $DEV/hwtype 2> /dev/null )"
+    FUNCS="$( cat $DEV/ap_functions 2> /dev/null )"
+    # If sysfs attribute is missing, set functions to 0
+    if [ "x"$FUNCS == "x" ] ; then
+	FUNCS="0x00000000"
+    fi
+    # skip devices, which are not supported by zcrypt layer
+    if [ ! -r $DEV/type -a ! -r $DEV/online ] ; then
+	CAPS="Detailed capability information for $CARD"
+	CAPS+=" (hardware type $HWTYPE) is not available."
+	echo -e $CAPS
+	return;
+    fi
+    let FUNC_VAL=$FUNCS
+    CAPS="$CARD provides capability for:\n"
+    case $HWTYPE in
+	6|8)
+		if (( FUNC_VAL&$MASK_RSA4K )) ; then
+			CAPS+="$CAP_RSA4K"
+		else
+			CAPS+="$CAP_RSA2K"
+		fi
+		;;
+	7|9)
+		CAPS+="$CAP_RSA4K\n"
+		CAPS+="$CAP_CCA\n"
+		CAPS+="$CAP_RNG"
+		;;
+	10)
+		if (( FUNC_VAL&$MASK_ACCEL )) ; then
+			if (( FUNC_VAL&$MASK_RSA4K )) ; then
+				CAPS+="$CAP_RSA4K"
+			else
+				CAPS+="$CAP_RSA2K"
+			fi
+		elif (( FUNC_VAL&$MASK_COPRO )) ; then
+			CAPS+="$CAP_RSA4K\n"
+			CAPS+="$CAP_CCA\n"
+			CAPS+="$CAP_RNG"
+		else
+			CAPS="Detailed capability information for $CARD"
+			CAPS+=" (hardware type $HWTYPE) is not available."
+		fi
+		;;
+	*)
+		CAPS="Detailed capability information for $CARD"
+		CAPS+=" (hardware type $HWTYPE) is not available."
+		;;
+     esac
+     echo -e $CAPS
+}
+
+show_device() {
+    CARD="$1"
+    DEV="$SYSFS/bus/ap/devices/$CARD"
+    if [ ! -d "$DEV" ] ; then
+	echo "$CMD: error - cryptographic adapter $CARD does not exist!" >&2
+	exit 1
+    fi
+    if [ ! -r $DEV/type -a ! -r $DEV/online ] ; then
+	# skip devices, which are not supported by zcrypt layer
+	return;
+    fi
+    TYPE="$( cat $DEV/type 2> /dev/null )"
+    if [ "$( cat $DEV/online 2> /dev/null )" -eq 0 ] ; then
+	ONLINE=offline
+    else
+	ONLINE=online
+    fi
+    case $VERBOSE in
+	0) echo "$CARD: $TYPE"
+	    ;;
+	1) printf "%s: %-11s %-7s\n" $CARD $TYPE $ONLINE
+	    ;;
+	2)
+	    HWTYPE="$( cat $DEV/hwtype 2> /dev/null )"
+	    DEPTH="$( cat $DEV/depth 2> /dev/null )"
+	    REQ_CNT="$( cat $DEV/request_count 2> /dev/null )"
+	    printf "%s: %-11s %-7s hwtype=%-2d depth=%d request_count=%-10d\n" \
+	    $CARD $TYPE $ONLINE $HWTYPE $DEPTH $REQ_CNT
+	    ;;
+	*)
+	    HWTYPE="$( cat $DEV/hwtype 2> /dev/null )"
+	    DEPTH="$( cat $DEV/depth 2> /dev/null )"
+	    REQ_CNT="$( cat $DEV/request_count 2> /dev/null )"
+	    REQQ_CNT="$( cat $DEV/requestq_count 2> /dev/null )"
+	    PENQ_CNT="$( cat $DEV/pendingq_count 2> /dev/null )"
+	    FUNCS="$( cat $DEV/ap_functions 2> /dev/null )"
+	    FMT="%s: %-11s %-7s hwtype=%-2d depth=%d"
+	    FMT+=" request_count=%d pendingq_count=%d requestq_count=%d"
+	    FMT+=" functions=%-10s\n"
+	    printf "$FMT" \
+	           $CARD $TYPE $ONLINE $HWTYPE $DEPTH \
+		   $REQ_CNT $PENQ_CNT $REQQ_CNT \
+		   $FUNCS
+    esac
+}
+
+# Parse command line
+TEMP=`getopt -o bchvV \
+      --long bus,capability,help,version,verbose \
+     -n "$CMD" -- "$@"`
+if [ $? != 0 ] ; then
+    exit 1
+fi
+eval set -- "$TEMP"
+
+SHOW_BUS=
+VERBOSE=0
+while true ; do
+    case "$1" in
+	-b|--bus) SHOW_BUS=1
+	    shift;;
+	-c|--capability) SHOW_CAPABILITY=1
+	    shift;;
+	-h|--help) print_usage
+	    exit 0;;
+	-v|--version) print_version
+	    exit 0;;
+	-V|--verbose) let VERBOSE++
+	    shift;;
+	--) shift; break;;
+	*) echo "Internal error!" ; exit 1;;
+    esac
+done
+
+# Check sysfs and zcrypt availability 
+if [ -z "$( cat /proc/filesystems | grep sysfs )" ] ; then
+    echo "$CMD: error - sysfs support required!" >&2
+    exit 1
+fi
+SYSFS="$( cat /proc/mounts | awk '$3=="sysfs" { print $2 ; exit }' )"
+if [ -z "$SYSFS" ] ; then
+    echo "$CMD: error - sysfs filesystem must be mounted!" >&2
+    exit 1
+fi
+if [ ! -d "$SYSFS/bus/ap" ] ; then
+    echo "$CMD: error - cryptographic device driver zcrypt is not loaded!" >&2
+    exit 1
+fi
+
+if [ -n "$SHOW_BUS" ] ; then
+    show_bus
+    exit 0
+fi
+
+if [ -n "$SHOW_CAPABILITY" ] ; then
+    if [ $# -ne 1 ] ; then
+       invalid_cmdline "capability option requires a single cryptographic device id"
+    fi
+    show_capability $@
+    exit 0
+fi
+
+if [ $# -eq 0 ] ; then
+    DEVLIST="$( find $SYSFS/bus/ap/devices -name 'card*' -printf '%f\n' | sort )"
+    for CARD in $DEVLIST ; do
+	show_device $CARD
+    done
+else
+    for ID in "$@" ; do
+	CARD="$( printf "card%02x" "$ID" 2> /dev/null )"
+	if [ $? -ne 0 ] ; then
+	    invalid_cmdline "error - '$ID' is an invalid cryptographic adapter id!"
+	fi
+	show_device $CARD
+    done
+fi

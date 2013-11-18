@@ -1,17 +1,46 @@
-# Object files
+#
+# Ignore compiler generated files
+#
 *.o
 
-# Libraries
-*.lib
-*.a
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
+#
+# Ignore generated executables and other generated files
+#
+cpuplugd/cpuplugd
+cmsfs-fuse/cmsfs-fuse
+dasdfmt/dasdfmt
+dasdinfo/dasdinfo
+dasdview/dasdview
+fdasd/fdasd
+hyptop/hyptop
+ip_watcher/xcec-bridge
+ipl_tools/chreipl
+ipl_tools/chshut
+ipl_tools/lsreipl
+ipl_tools/lsshut
+iucvterm/po/iucvterm.pot
+iucvterm/src/iucvconn
+iucvterm/src/iucvtty
+iucvterm/src/ttyrun
+iucvterm/test/test_afiucv
+mon_tools/mon_fsstatd
+mon_tools/mon_procd
+osasnmpd/osasnmpd
+qetharp/qetharp
+qethqoat/qethqoat
+tape390/tape390_crypt
+tape390/tape390_display
+tunedasd/src/tunedasd
+vmconvert/vmconvert
+vmcp/vmcp
+vmur/vmur
+zdump/zgetdump
+ziomon/ziomon_mgr
+ziomon/ziomon_util
+ziomon/ziomon_zfcpdd
+ziomon/ziorep_traffic
+ziomon/ziorep_utilization
+zipl/boot/*.bin
+zipl/boot/data.h
+zipl/src/chreipl_helper.device-mapper
+zipl/src/zipl

@@ -1,0 +1,39 @@
+==============================================================================
+zfcpdump: SCSI System Dumper
+==============================================================================
+
+Overview:
+=========
+
+With this package it is possible to create linux system dumps on SCSI disks.
+The prerequisite to create dumps with zfcpdump is that the zSeries machine 
+has installed the "list directed dump" feature. Your machine has this 
+feature, if the load panel on the HMC provides a "list directed dump" radio 
+button. VM does currently not support "list directed dump".
+ 
+Build zfcpdump:
+===============
+
+In order to build zfcpdump, three external packages must be copied to the 
+"extern" directory:
+
+	- e2fsprogs   : mesh.dl.sourceforge.net/sourceforge/e2fsprogs
+	- linux-2.6.12: http://www.kernel.org
+
+Currently the following tarballs of the packages are required:
+
+- e2fsprogs-1.37.tar.gz  
+- linux-2.6.12.tar.bz2
+
+The script 'get_files.sh' can be used to get the required files from the 
+internet.  You may edit the file 'config' in order to setup your http proxy.
+
+zfcpdump can be built using a romfs or ext2 ramdisk. This can be specified
+in the config file setting RD_FS to 'romfs' (default) or 'ext2'. In order
+to use romfs the program 'genromfs' (see http://romfs.sourceforge.net/) has
+to be installed on the build system. The advantage of romfs is that
+zfcpdump can be built without being root. If ext2 is used, zfcpdump has
+to be built as root, since the mount command is needed, which normally
+requires root privileges.
+
+Call 'make' to build zfcpdump! 

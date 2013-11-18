@@ -1,0 +1,543 @@
+#!/bin/bash
+#==============================================================================
+# Copyright IBM Corp. 2003, 2008.
+#
+# lsdasd
+#
+# Author(s): Stefan Bader     <shbader@de.ibm.com>
+#            Stefan Weinhuber <wein@de.ibm.com>
+#            Stefan Haberland <stefan.haberland@de.ibm.com>
+#
+# This file is part of s390-tools
+#
+# s390-tools is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# s390-tools is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with s390-tools; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#==============================================================================
+CMD=$(basename $0)
+SYSFSDIR="/sys"
+
+#------------------------------------------------------------------------------
+# Print usage
+#------------------------------------------------------------------------------
+function PrintUsage() {
+	cat <<-EOD
+		Usage: $(basename $0) <options> [<device>]
+
+		<options> ::=
+		 	-a|--offline
+		 		Include devices that are currently offline.
+		 	-b|--base
+		 		Include only base devices.
+		 	-h|--help
+		 		Print this text and exit.
+		 	-s|--short
+		 		Strip leading 0.0. from bus IDs.
+		 	-u|--uid
+		 		Print and sort by uid.
+		 	-c|--compat
+		 		Print old version of lsdasd output.
+		 	-l|--long
+		 		Print extended information about DASDs.
+		 	-v|--verbose
+		 		For compatibility/future use. Currently ignored.
+		 	--version
+		 		Show tools and command version.
+
+		<device> ::= <bus ID>
+		 	Limit output to one or more devices which are given as a bus ID.
+	EOD
+}
+
+function PrintVersion()
+{
+	cat <<-EOD
+	$CMD: version %S390_TOOLS_VERSION%
+	Copyright IBM Corp. 2003, 2008
+	EOD
+}
+
+#------------------------------------------------------------------------------
+# Helper function to check a device string.
+#------------------------------------------------------------------------------
+function CheckDeviceString() {
+	local X
+
+	X=$(
+		echo "$1" |
+		awk --posix -F. '
+			function PrintBusID(css, grp, devno) {
+				while(length(devno) < 4)
+					devno = "0" devno
+				print css "." grp "." devno
+			}
+			NF == 1 && $1 ~ /^[0-9a-fA-F]{1,4}$/ {
+				PrintBusID("0","0", $1)
+				next
+			}
+			NF != 3 || $1 !~ /^[0-9a-fA-F]{1,2}$/ {
+				next
+			}
+			$2 !~ /^[0-9a-fA-F]{1,2}$/ {
+				next
+			}
+			$3 !~ /^[0-9a-fA-F]{1,4}$/ {
+				next
+			}
+			{
+				PrintBusID($1, $2, $3)
+			}
+		'
+		)
+
+	if [ "$X" != "" ]; then
+		echo $X
+		return 0
+	fi
+
+	return 1
+}
+
+#------------------------------------------------------------------------------
+# Generate list of DASDs
+#------------------------------------------------------------------------------
+function listDASDDeviceDirectories() {
+    DRIVERECKD="$SYSFSDIR/bus/ccw/drivers/dasd-eckd/"
+    DRIVERFBA="$SYSFSDIR/bus/ccw/drivers/dasd-fba/"
+    SEARCHDIRS=
+
+    if [[ -d "$DRIVERECKD" ]]; then
+	SEARCHDIRS="$DRIVERECKD"
+    fi
+    if [[ -d "$DRIVERFBA" ]]; then
+	SEARCHDIRS="$SEARCHDIRS $DRIVERFBA"
+    fi
+    if [[ -n "$SEARCHDIRS" ]]; then
+        find $SEARCHDIRS -type l -printf "%h/%l\n" 2> /dev/null
+    else
+        # The above paths may become invalid in the future, so we keep the
+        # following query as backup:
+        find "$SYSFSDIR/devices" -type l -name "driver" -lname "*/dasd*" \
+		    -printf "%h\n" 2> /dev/null
+    fi
+    return 0
+}
+
+#------------------------------------------------------------------------------
+# gather device data and call apropriate output function
+#------------------------------------------------------------------------------
+function gatherDeviceData() {
+	while read DEVPATH
+	do
+		#-------------------------------------------#
+		# gather information from device attributes #
+		#-------------------------------------------#
+		read ONLINE 2> /dev/null < $DEVPATH/online || continue
+		if [[ "$ONLINE" == 0 ]] &&
+			[[ "$PRINTOFFLINE" == "false" ]]; then
+			continue
+		fi
+		read ALIAS 2> /dev/null < $DEVPATH/alias || continue
+		read DEV_UID 2> /dev/null < $DEVPATH/uid || continue
+		read READONLY 2> /dev/null < $DEVPATH/readonly || continue
+		read DISCIPLINE 2> /dev/null < $DEVPATH/discipline || continue
+
+		# Block device specific information is only available for
+		# devices that are online and not a PAV alias
+		if [[ ! "$ONLINE" == 0 ]] && [[ ! "$ALIAS" == 1 ]]; then
+			#find device Path to the block device
+			if [[ -d "$DEVPATH/block" ]]; then
+				set - "$DEVPATH"/block/dasd*
+			else
+				set - "$DEVPATH"/block:dasd*
+			fi
+			MAJMIN=
+			MAJOR=
+			MINOR=
+			SIZE=
+			SSIZE=
+			if [[ -d "$1" ]]; then
+				cd -P "$1"
+				BLOCKPATH=$PWD
+				BLOCKNAME=${BLOCKPATH##*/}
+				read MAJMIN 2> /dev/null < $BLOCKPATH/dev || continue
+				MAJOR=${MAJMIN%%:*}
+				MINOR=${MAJMIN##*:}
+				read SIZE 2> /dev/null < $BLOCKPATH/size || continue
+				read SSIZE 2> /dev/null < $BLOCKPATH/queue/hw_sector_size
+				if [[ -z $SSIZE ]] && [[ -b "/dev/$BLOCKNAME" ]]; then
+					SSIZE=$(blockdev --getss /dev/$BLOCKNAME 2>/dev/null)
+				fi
+			fi
+		else
+			# BLOCKNAME for offline and alias devices will not be
+			# printed, it's just a key for sorting
+			if [[ "$ONLINE" == 0 ]]; then
+				BLOCKNAME=""
+			else
+				BLOCKNAME="a"
+			fi
+			MAJMIN=
+			MAJOR=
+			MINOR=
+			SIZE=
+		fi
+
+		# busid is the base name of the device path
+		if [[ "$SHORTID" == "true" ]]; then
+			BUSID=${DEVPATH##*.}
+		else
+			BUSID=${DEVPATH##*/}
+		fi
+
+		if [[ "$PRINTUID" == "true" ]]; then
+			SORTKEYLEN=${#DEV_UID}
+			SORTKEY=$DEV_UID
+			FORMATTED_UID="$DEV_UID"
+		else
+			SORTKEYLEN=${#BLOCKNAME}
+			SORTKEY=$BLOCKNAME
+			FORMATTED_UID=""
+		fi
+
+		if [[ "$OUTPUT" == "old" ]]; then
+			oldoutput
+		elif [[ "$OUTPUT" == "extended" ]]; then
+			extended
+		elif [[ "$PRINTUID" == "true" ]]; then
+			uid
+		else
+			newoutput
+		fi
+    done
+}
+
+function newoutput()
+{
+	#-------------------------------------------#
+	# format data for output                    #
+	#-------------------------------------------#
+
+	if [[ "$ONLINE" == 0 ]]; then
+		printf "%s:%s:%-8s   offline\n" \
+			"$SORTKEYLEN" "$SORTKEY" \
+			"$BUSID" ;
+		continue
+	fi
+
+	if [[ "$ALIAS" == 1 ]]; then
+		if [[ "$BASEONLY" == "false" ]]; then
+			printf "%s:%s:%-8s   alias %28s\n" \
+				"$SORTKEYLEN" "$SORTKEY" \
+				"$BUSID" \
+				"$DISCIPLINE"
+			continue
+		else
+			continue
+			fi
+	fi
+
+	if [[ "$READONLY" == 0 ]]; then
+		ROSTRING=""
+	else
+		ROSTRING="(ro)"
+	fi
+
+	if [[ -z "$BLOCKNAME" ]] || [[ -z "$SIZE" ]]; then
+		ACTIVE="active"
+		BLOCKCOUNT=""
+		MBSIZE=""
+	elif [[ "$SIZE" == 0 ]]; then
+		ACTIVE="n/f"
+		BLOCKCOUNT=""
+		MBSIZE=""
+		SSIZE=""
+	else
+		if [[ -n "$SSIZE" ]] && [[ "$SSIZE" > 0 ]]; then
+				BLOCKCOUNT=$(( SIZE / (SSIZE / 512) ))
+		else
+			SSIZE="???"
+			BLOCKCOUNT="???"
+		fi
+		MBSIZE=$(( SIZE / 2048 ))MB
+		ACTIVE="active"
+	fi
+
+	printf "%s:%s:%-8s   %-6s%-4s  %-8s  %-2s:%-2s   %-4s  %-4s   %-8s  %s\n" \
+		"$SORTKEYLEN" "$SORTKEY" \
+		"$BUSID" \
+		"$ACTIVE" \
+		"$ROSTRING" \
+		"$BLOCKNAME" \
+		"$MAJOR" \
+		"$MINOR" \
+		"$DISCIPLINE" \
+		"$SSIZE" \
+		"$MBSIZE" \
+		"$BLOCKCOUNT" ;
+}
+
+function oldoutput()
+{
+	#-------------------------------------------#
+	# format data for output                    #
+	#-------------------------------------------#
+
+	if [[ "$ONLINE" == 0 ]]; then
+		printf "%s:%s:%s(%s)%s : offline\n" \
+			"$SORTKEYLEN" "$SORTKEY" \
+			"$BUSID" \
+			"$DISCIPLINE" \
+			"$FORMATTED_UID"
+		continue
+	fi
+
+	if [[ "$ALIAS" == 1 ]]; then
+		if [[ "$BASEONLY" == "false" ]]; then
+			printf "%s:%s:%s(%s)%s : alias\n" \
+				"$SORTKEYLEN" "$SORTKEY" \
+				"$BUSID" \
+				"$DISCIPLINE" \
+				"$FORMATTED_UID"
+			continue
+		else
+			continue
+			fi
+	fi
+
+	if [[ "$READONLY" == 0 ]]; then
+		ROSTRING=""
+	else
+		ROSTRING="(ro)"
+	fi
+
+	printf "%s:%s:%s(%-4s)%s at (%3i:%3i) is %-7s%4s: " \
+		"$SORTKEYLEN" "$SORTKEY" \
+		"$BUSID" \
+		"$DISCIPLINE" \
+		"$FORMATTED_UID" \
+		"$MAJOR" \
+		"$MINOR" \
+		"$BLOCKNAME" \
+		"$ROSTRING" ;
+
+	if [[ -z "$BLOCKNAME" ]] || [[ -z "$SIZE" ]]; then
+		printf "active\n"
+	elif [[ "$SIZE" == 0 ]]; then
+		printf "n/f\n"
+	else
+		if [[ -n "$SSIZE" ]] && [[ "$SSIZE" > 0 ]]; then
+				BLOCKCOUNT=$(( SIZE / (SSIZE / 512) ))
+		else
+			SSIZE="???"
+			BLOCKCOUNT="???"
+		fi
+		MBSIZE=$(( SIZE / 2048 ))
+		printf "active at blocksize %s, %s blocks, %i MB\n" \
+			"$SSIZE" "$BLOCKCOUNT" "$MBSIZE"
+	fi
+}
+
+function extended()
+{
+	# additional information
+	read DIAG 2> /dev/null < $DEVPATH/use_diag || continue
+	read EER 2> /dev/null < $DEVPATH/eer_enabled || continue
+	read ERP 2> /dev/null < $DEVPATH/erplog || continue
+
+       	#-------------------------------------------#
+       	# format data for output                    #
+       	#-------------------------------------------#
+
+	if [[ "$ONLINE" == 0 ]]; then
+		ACTIVE="offline"
+		printf "%s:%s:%s#  status:\t%s#  use_diag:\t%s#  readonly:\t%s#  eer_enabled:\t%s#  erplog:\t%s#  uid:  \t%s#\n" \
+			"$SORTKEYLEN" "$SORTKEY" \
+			"$BUSID" \
+			"$ACTIVE" \
+			"$DIAG" \
+			"$READONLY" \
+			"$EER" \
+			"$ERP" \
+			"$DEV_UID" ;
+		continue
+	elif [[ "$ALIAS" == 1 ]]; then
+		if [[ "$BASEONLY" == "false" ]]; then
+			ACTIVE="alias"
+			printf "%s:%s:%s#  status:\t%s#  type: \t%s#  use_diag:\t%s#  readonly:\t%s#  eer_enabled:\t%s#  erplog:\t%s #  uid:  \t%s#\n" \
+				"$SORTKEYLEN" "$SORTKEY" \
+				"$BUSID" \
+				"$ACTIVE" \
+				"$DISCIPLINE" \
+				"$DIAG" \
+				"$READONLY" \
+				"$EER" \
+				"$ERP" \
+				"$DEV_UID" ;
+			continue
+		else
+			continue
+		fi
+	elif [[ -z "$BLOCKNAME" ]] || [[ -z "$SIZE" ]]; then
+		ACTIVE="active"
+		COLON=""
+	elif [[ "$SIZE" == 0 ]]; then
+		ACTIVE="n/f"
+		COLON=""
+	else
+		if [[ -n "$SSIZE" ]] && [[ "$SSIZE" > 0 ]]; then
+			BLOCKCOUNT=$(( SIZE / (SSIZE / 512) ))
+		else
+			SSIZE="???"
+			BLOCKCOUNT="???"
+		fi
+		MBSIZE=$(( SIZE / 2048 ))MB
+		ACTIVE="active"
+		COLON=":"
+	fi
+
+	printf "%s:%s:%s/%s/%s%s%s#  status:\t%s#  type: \t%s#  blksz:\t%s#  size: \t%s#  blocks:\t%s#  use_diag:\t%s#  readonly:\t%s#  eer_enabled:\t%s#  erplog:\t%s#  uid:  \t%s#\n" \
+		"$SORTKEYLEN" "$SORTKEY" \
+		"$BUSID" \
+		"$BLOCKNAME" \
+		"$MAJOR" \
+		"$COLON" \
+		"$MINOR" \
+		"$ACTIVE" \
+		"$DISCIPLINE" \
+		"$SSIZE" \
+		"$MBSIZE" \
+		"$BLOCKCOUNT" \
+		"$DIAG" \
+		"$READONLY" \
+		"$EER" \
+		"$ERP" \
+		"$DEV_UID" ;
+}
+
+function uid()
+{
+	#-------------------------------------------#
+	# format data for output                    #
+	#-------------------------------------------#
+
+	if [[ "$ONLINE" == 0 ]]; then
+		BLOCKNAME="offline"
+	elif [[ "$ALIAS" == 1 ]]; then
+		if [[ "$BASEONLY" == "true" ]]; then
+			continue
+		else
+			BLOCKNAME="alias"
+		fi
+	fi
+
+	printf "%s:%s:%-8s  %-8s  %s\n" \
+		"$SORTKEYLEN" "$SORTKEY" \
+		"$BUSID" \
+		"$BLOCKNAME" \
+		"$FORMATTED_UID" ;
+}
+
+SHORTID=false
+PRINTOFFLINE=false
+VERBOSE=false
+PRINTUID=false
+BASEONLY=false
+OUTPUT="new"
+#------------------------------------------------------------------------------
+# Evaluating command line options
+#------------------------------------------------------------------------------
+while [ $# -gt 0 ]; do
+	case $1 in
+	--help|-h)
+		PrintUsage
+		exit 0
+		;;
+	--verbose|-v)
+		VERBOSE=true
+		;;
+	--offline|-a)
+		PRINTOFFLINE=true
+		;;
+	--short|-s)
+		SHORTID=true
+		;;
+	--uid|-u)
+		PRINTUID=true
+		;;
+	--base|-b)
+		BASEONLY=true
+		;;
+	--compat|-c)
+		OUTPUT="old"
+		;;
+	--long|-l)
+		OUTPUT="extended"
+		;;
+	--version)
+		PrintVersion
+		exit 0
+		;;
+	-*)
+		echo "$CMD: Invalid option $1"
+		echo "Try 'lsdasd --help' for more information."
+		exit 1
+		;;
+	*)
+		DEV="$(CheckDeviceString $1)"
+		if [ "$DEV" = "" ]; then
+			echo "$CMD: ERROR: $1 no device format"
+			exit 1
+		fi
+		if [ "$DEVLIST" == "" ]; then
+			DEVLIST=$DEV
+		else
+			DEVLIST="$DEVLIST\|$DEV"
+		fi
+		;;
+	esac
+	shift
+	if [[ $OUTPUT == "extended" ]]; then
+		if [[ $PRINTUID == true ]]; then
+			echo "$CMD: ERROR: invalid options specified"
+			exit 1
+		fi
+	fi
+done
+
+
+PROCESSING="listDASDDeviceDirectories "
+# if there is a DEVLIST remove all elements not in the DEVLIST
+if [ "$DEVLIST" != "" ]; then
+	PROCESSING=" $PROCESSING | grep \"$DEVLIST\" "
+fi
+
+# gather information on devices in list
+PROCESSING=" $PROCESSING | gatherDeviceData "
+# sort resulting list
+PROCESSING=" $PROCESSING | sort -t: -k1n -k2 | cut -d: -f3- "
+
+if  [[ "$PRINTUID" == "true" ]] && [[ "$OUTPUT" != "old" ]]; then
+	printf "Bus-ID    Name      UID\n"
+	printf "==============================================================================\n"
+elif [[ "$OUTPUT" == "new" ]]; then
+	printf "Bus-ID     Status      Name      Device  Type  BlkSz  Size      Blocks\n"
+	printf "==============================================================================\n"
+elif [[ "$OUTPUT" == "extended" ]]; then
+	PROCESSING=" $PROCESSING | sed 's/#/\n/g' "
+fi
+
+#execute all steps
+eval "$PROCESSING"
+
+exit 0

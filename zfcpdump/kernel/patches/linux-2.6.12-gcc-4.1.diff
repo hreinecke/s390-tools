@@ -1,0 +1,85 @@
+Binary files linux-2.6.12/include/asm-s390/.uaccess.h.swp and linux-2.6.12-gcc-4.1/include/asm-s390/.uaccess.h.swp differ
+diff -urN linux-2.6.12/include/asm-s390/uaccess.h linux-2.6.12-gcc-4.1/include/asm-s390/uaccess.h
+--- linux-2.6.12/include/asm-s390/uaccess.h	2006-03-10 08:51:11.000000000 +0100
++++ linux-2.6.12-gcc-4.1/include/asm-s390/uaccess.h	2006-03-10 08:56:34.000000000 +0100
+@@ -61,8 +61,10 @@
+ #define segment_eq(a,b) ((a).ar4 == (b).ar4)
+ 
+ 
+-#define __access_ok(addr,size) (1)
+-
++static inline int __access_ok(const void *addr, unsigned long size)
++{
++        return 1;
++}
+ #define access_ok(type,addr,size) __access_ok(addr,size)
+ 
+ /* this function will go away soon - use access_ok() instead */
+@@ -213,33 +215,41 @@
+ })
+ #endif
+ 
+-#ifndef __CHECKER__
+-#define __get_user(x, ptr)					\
+-({								\
+-	__typeof__(*(ptr)) __x;					\
+-	int __gu_err;						\
+-	switch (sizeof(*(ptr))) {				\
+-	case 1:							\
+-	case 2:							\
+-	case 4:							\
+-	case 8:							\
+-		__get_user_asm(__x, ptr, __gu_err);		\
+-		break;						\
+-	default:						\
+-		__get_user_bad();				\
+-		break;						\
+-	}							\
+-	(x) = __x;						\
+-	__gu_err;						\
++#define __get_user(x, ptr)                                      \
++({                                                              \
++        int __gu_err;                                           \
++        __chk_user_ptr(ptr);                                    \
++        switch (sizeof(*(ptr))) {                               \
++        case 1: {                                               \
++                unsigned char __x;                              \
++                __get_user_asm(__x, ptr, __gu_err);             \
++                (x) = *(__typeof__(*(ptr)) *) &__x;             \
++                break;                                          \
++        };                                                      \
++        case 2: {                                               \
++                unsigned short __x;                             \
++                __get_user_asm(__x, ptr, __gu_err);             \
++                (x) = *(__typeof__(*(ptr)) *) &__x;             \
++                break;                                          \
++        };                                                      \
++        case 4: {                                               \
++                unsigned int __x;                               \
++                __get_user_asm(__x, ptr, __gu_err);             \
++                (x) = *(__typeof__(*(ptr)) *) &__x;             \
++                break;                                          \
++        };                                                      \
++        case 8: {                                               \
++                unsigned long long __x;                         \
++                __get_user_asm(__x, ptr, __gu_err);             \
++                (x) = *(__typeof__(*(ptr)) *) &__x;             \
++                break;                                          \
++        };                                                      \
++        default:                                                \
++                __get_user_bad();                               \
++                break;                                          \
++        }                                                       \
++        __gu_err;                                               \
+ })
+-#else
+-#define __get_user(x, ptr)			\
+-({						\
+-	void __user *p;				\
+-	p = (ptr);				\
+-	0;					\
+-})
+-#endif
+ 
+ 
+ #define get_user(x, ptr)					\

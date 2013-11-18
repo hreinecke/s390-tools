@@ -1,0 +1,438 @@
+#!/bin/bash
+#==============================================================================
+# Copyright IBM Corp. 2003,2011
+#
+# lscss
+#
+# Script to list information about subchannels.
+#
+# Author(s): Stefan Bader <shbader@de.ibm.com>
+#            Sebastian Ott <sebott@linux.vnet.ibm.com>
+#
+# This file is part of s390-tools
+#
+# s390-tools is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# s390-tools is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with s390-tools; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#==============================================================================
+
+CMD=${0##*/}
+
+function print_usage() {
+	cat <<-EOD
+		Usage: $CMD <options> [RANGE]
+
+		[RANGE]
+		 	Limit output to a range of subchannels by specifying
+		 	multiple identifiers as a comma-separated list or a
+		 	range or a combination of both, e.g.
+
+		 	  0.0.1234-0.0.1235,4711
+
+		 	Note that ranges may also be separated by spaces.
+
+		<options>
+		 	-s|--short
+		 		Shorten IDs by removing leading "0.0.". Note:
+		 		only IDs beginning with "0.0." will be
+		 		displayed in this case.
+		 	-t|--devtype <devtype>[/<model>][,...]
+		 		For IO subchannels, limit output to devices of
+		 		the given device type (e.g. 3390).
+		 	-d|--devrange
+		 		Indicate that RANGE refers to device
+		 		identifiers.
+		 	--avail
+		 		Show availability attribute of IO devices.
+		 	--vpm
+		 		Show verified path mask.
+		 	-v|--version
+		 		Show tools and command version.
+		 	-u|--uppercase
+		 		Print values using uppercase.
+		 	--io
+		 		Show IO subchannels. (default)
+		 	--chsc
+		 		Show CHSC subchannels.
+		 	--eadm
+		 		Show EADM subchannels.
+		 	-a|--all
+		 		Show subchannels of all types.
+	EOD
+}
+
+function print_version()
+{
+    VERSION="%S390_TOOLS_VERSION%"
+    echo -ne "$CMD: version $VERSION\nCopyright IBM Corp. 2003, 2011\n"
+}
+
+
+SUBCHANNEL_TYPE_IO=0
+SUBCHANNEL_TYPE_CHSC=1
+SUBCHANNEL_TYPE_EADM=3
+
+IDFORMAT=[[:xdigit:]]*.[0-3].[[:xdigit:]][[:xdigit:]][[:xdigit:]][[:xdigit:]]
+
+unset SCH_IO SCH_CHSC SCH_EADM SHOW_AVAIL UPPERCASE SHORTID DEVTYPES DEVRANGE
+unset RANGE SHOW_VPM
+shopt -s nocasematch
+shopt -s nullglob
+
+function check_id() #return 0 if $1 has a valid format
+{
+    if [ -z $1 ] ;then return 1 ;fi
+    IFS=.
+    read -a __ID <<< "$1"
+    unset IFS
+    case ${#__ID[@]} in
+	1)
+	    if [ ${#__ID[0]} != 4 ] ;then
+		return 1
+	    fi
+	    ;;
+	3)
+	    if [ ${#__ID[2]} != 4 -o ${#__ID[1]} != 1 -o "${__ID[1]//[012]/}" \
+		-o \( ${#__ID[0]} != 2 -a ${#__ID[0]} != 1 \) ] ;then
+		return 1
+	    fi
+	    ;;
+	*)
+	    return 1
+	    ;;
+    esac
+    return 0
+}
+
+function parse_error()
+{
+    echo "$CMD: Syntax error: $1" >&2
+    exit 1
+}
+
+function parse_ranges()
+{
+    if [ -z $1 ] ;then return ;fi
+    IFS=,
+    read -a RANGES <<< "$1"
+    unset IFS
+    for __RANGE in ${RANGES[@]} ;do
+	__LOWER=${__RANGE%%-*}
+	if ! check_id $__LOWER ;then
+	    parse_error $__RANGE
+	fi
+	__LOWER=${__LOWER//./}
+	__UPPER=${__RANGE##*-}
+	if ! check_id $__UPPER ;then
+	    parse_error $__RANGE
+	fi
+	__UPPER=${__UPPER//./}
+	if [ "${__LOWER//[[:xdigit:]]/}" -o "${__UPPER//[[:xdigit:]]/}" ] ;then
+	    parse_error $__RANGE
+	fi
+	__LOWER=$((0x$__LOWER))
+	__UPPER=$((0x$__UPPER))
+	if [ $__LOWER -le $__UPPER ] ;then
+	    LOWER_RANGES[${#LOWER_RANGES[@]}]=$__LOWER
+	    UPPER_RANGES[${#UPPER_RANGES[@]}]=$__UPPER
+	fi
+    done
+}
+
+function parse_devtypes()
+{
+    if [ -z $1 ] ;then return ;fi
+    IFS=,
+    read -a TYPES <<< "$1"
+    unset IFS
+}
+
+
+while [ $# -gt 0 ]; do
+    case $1 in
+	-h|--help)
+	    print_usage
+	    exit 0
+	    ;;
+	-s|--short)
+	    SHORTID=true
+	    ;;
+	-t|--devtype)
+	    DEVTYPES=$2
+	    parse_devtypes $DEVTYPES
+	    shift
+	    ;;
+	-v|--version)
+	    print_version
+	    exit 0
+	    ;;
+	-u|--uppercase)
+	    UPPERCASE=true
+	    ;;
+	--io)
+	    SCH_IO=true
+	    ;;
+	--chsc)
+	    SCH_CHSC=true
+	    ;;
+	--eadm)
+	    SCH_EADM=true
+	    ;;
+	-a|--all)
+	    SCH_IO=true
+	    SCH_CHSC=true
+	    SCH_EADM=true
+	    ;;
+	--avail)
+	    SHOW_AVAIL=true
+	    ;;
+	--vpm)
+	    SHOW_VPM=true
+	    ;;
+	-d|--devrange)
+	    DEVRANGE=true
+            ;;
+	-*|--*)
+	    echo "$CMD: Invalid option $1" >&2
+	    echo "Try '$CMD --help' for more information." >&2
+	    exit 1
+	    ;;
+	*)
+	    if [ $RANGE ] ;then
+		RANGE=$RANGE,$1
+	    else
+		RANGE=$1
+	    fi
+	    ;;
+    esac
+    shift
+done
+
+if [ $RANGE ] ;then
+    parse_ranges $RANGE
+fi
+
+if [ ! \( "$SCH_IO" -o "$SCH_CHSC" -o "$SCH_EADM" \) ] ;then
+    SCH_IO=true
+fi
+
+function print_schid_within()
+{
+    if [ -z $SCH/$IDFORMAT ] ; then
+        echo $SCH/none
+	return
+    fi
+    if [ ! $RANGES ] ;then
+	echo $SCH/$IDFORMAT
+	return
+    fi
+    if [ $DEVRANGE ] ;then
+	DEVID=($SCH/$IDFORMAT) #force globbing by generating an array
+	if [ ! \( -d $DEVID \) ] ;then
+	    return #there is no device attached to this subchannel
+	fi
+	DEVID=${DEVID##*/}
+	ID=$((0x${DEVID//./}))
+    else
+	SCHID=${SCH##*/}
+	ID=$((0x${SCHID//./}))
+    fi
+    for (( i=0; i<${#LOWER_RANGES[@]} ; i++ )) ;do
+	if [ $ID -ge ${LOWER_RANGES[$i]} \
+	  -a $ID -le ${UPPER_RANGES[$i]} ] ;then
+	    echo $SCH/$IDFORMAT
+	    break #print SCH only once even if matches twice
+	fi
+    done
+}
+
+
+function list_sch_of_type()
+{
+    find /sys/bus/css/devices/ -type l -name "$IDFORMAT" 2> /dev/null |
+    sort -t/ -k6 |
+    while read SCH ;do
+	if [ -f $SCH/type ] ;then
+	    read TYPE < $SCH/type
+	else #kernels without subchannel type only support io subchannels
+	    TYPE=$SUBCHANNEL_TYPE_IO
+	fi
+	if [ $TYPE = $1 ] ;then
+	    print_schid_within
+	fi
+    done
+    if [ $1 -eq $SUBCHANNEL_TYPE_IO ] ; then
+	for DEFUNCT in /sys/devices/css*/defunct/$IDFORMAT ; do
+	    echo $DEFUNCT
+	done
+    fi
+}
+
+function print_io()
+{
+    list_sch_of_type $SUBCHANNEL_TYPE_IO |
+    while read DEV ;do
+	SCH=${DEV%/*}
+	if [ -d $DEV ] ;then
+	    read CUTYPE 2> /dev/null < $DEV/cutype || continue
+	    read ONLINE 2> /dev/null < $DEV/online || continue
+	    read DEVTYPE 2> /dev/null < $DEV/devtype || continue
+	    if [[ $DEVTYPE == "n/a" ]] ;then DEVTYPE="0000/00" ;fi
+	    if [ $DEVTYPES ] ;then
+		__MATCHED=false
+		for TYPE in ${TYPES[@]} ;do
+		    if [[ $DEVTYPE == $TYPE || ${DEVTYPE%/*} == $TYPE ]] ;then
+			__MATCHED=true
+			break
+		    fi
+		done
+		if [[ $__MATCHED != true ]] ;then
+		    continue
+		fi
+	    fi
+	    if [ $ONLINE = 1 ] ;then ONLINE="yes" ;else ONLINE="" ;fi
+	    if [ $SHOW_AVAIL ] ;then
+		read AVAIL 2> /dev/null < $DEV/availability || continue
+	    fi
+	    DEV=${DEV##*/}
+	else
+	    ONLINE=""
+	    DEVTYPE=""
+	    CUTYPE=""
+	    DEV="none"
+	    AVAIL=""
+	    VPM=""
+	fi
+	if [ ${SCH##*/} == "defunct" ] ; then
+	    SCH="n/a"
+	    PIM="  "
+	    PAM="  "
+	    POM="  "
+	    VPM="  "
+	    C=("  " "  " "  " "  " "  " "  " "  " "  ")
+	    if [ "$SHORTID" -a ${DEV:0:4} != "0.0." ] ; then
+		continue
+	    fi
+	else
+	    read PIM PAM POM 2> /dev/null < $SCH/pimpampom || continue
+	    read -a C 2> /dev/null < $SCH/chpids || continue
+	    if [ $SHOW_VPM ] ;then
+		read VPM 2> /dev/null < $SCH/vpm || continue
+		VPM=$VPM" "
+	    fi
+	    SCH=${SCH##*/}
+	    if [ "$SHORTID" -a ${SCH:0:4} != "0.0." ] ; then
+		continue
+	    fi
+	fi
+	if [ "$SHORTID" ] ; then
+	    DEV=${DEV#0.0.}
+	    SCH=${SCH#0.0.}
+	fi
+	printf "%-8.8s %-8.8s  %-7.7s %-7.7s %3.3s" \
+	    "$DEV" "$SCH" "$DEVTYPE" "$CUTYPE" "$ONLINE"
+	printf "  %s  %s  %s  %s %s%s%s%s %s%s%s%s %s\n" \
+	    "$PIM" "$PAM" "$POM" "$VPM" "${C[@]}" "$AVAIL"
+    done
+}
+
+function print_io_header()
+{
+    local HEADER="Device   Subchan.  DevType CU Type Use  PIM PAM POM "
+    local LINE="----------------------------------------------------"
+
+    if [ \( "$SCH_CHSC" -o "$SCH_EADM" \) ] ;then
+	echo "IO Subchannels and Devices:"
+    fi
+    if [ $SHOW_VPM ] ;then
+	HEADER=$HEADER"VPM"
+	LINE=$LINE"---"
+    fi
+    HEADER=$HEADER" CHPIDs"
+    LINE=$LINE"------------------"
+    if [ $SHOW_AVAIL ] ;then
+	HEADER=$HEADER"            Avail."
+	LINE=$LINE"-------"
+    fi
+    echo "$HEADER"
+    echo "$LINE"
+}
+
+function print_chsc()
+{
+    list_sch_of_type $SUBCHANNEL_TYPE_CHSC |
+    while read DEV ;do
+	SCH=${DEV%/*}
+	SCH=${SCH##*/}
+	if [ $SHORTID ] ;then
+	    if [ ${SCH:0:4} != "0.0." ] ;then
+		continue
+	    fi
+	    SCH=${SCH#0.0.}
+	fi
+	printf "%-8.8s %-8.8s\n" "n/a" $SCH
+    done
+}
+
+function print_eadm()
+{
+    list_sch_of_type $SUBCHANNEL_TYPE_EADM |
+    while read DEV ;do
+	SCH=${DEV%/*}
+	SCH=${SCH##*/}
+	if [ $SHORTID ] ;then
+	    if [ ${SCH:0:4} != "0.0." ] ;then
+		continue
+	    fi
+	    SCH=${SCH#0.0.}
+	fi
+	printf "%-8.8s %-8.8s\n" "n/a" $SCH
+    done
+}
+
+if [ $SCH_IO ] ;then
+    print_io_header
+    print_io | if [ $UPPERCASE ] ;then
+	tr "[:lower:]" "[:upper:]"
+    else
+	cat -
+    fi
+fi
+
+if [ $SCH_CHSC ] ;then
+    if [ \( "$SCH_IO" -o "$SCH_EADM" \) ] ;then
+	echo
+	echo "CHSC Subchannels:"
+    fi
+    echo "Device   Subchan."
+    echo "-----------------"
+    print_chsc | if [ $UPPERCASE ] ;then
+	tr "[:lower:]" "[:upper:]"
+    else
+	cat -
+    fi
+fi
+
+if [ $SCH_EADM ] ;then
+    if [ \( "$SCH_IO" -o "$SCH_CHSC" \) ] ;then
+	echo
+	echo "EADM Subchannels:"
+    fi
+    echo "Device   Subchan."
+    echo "-----------------"
+    print_eadm | if [ $UPPERCASE ] ;then
+	tr "[:lower:]" "[:upper:]"
+    else
+	cat -
+    fi
+fi

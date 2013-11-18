@@ -1,0 +1,72 @@
+.TH LSDASD 8 "Apr 2006" "s390-tools"
+
+.SH NAME
+lsdasd \- list channel attached direct access storage devices (DASD).
+
+.SH SYNOPSIS
+.TP 8
+.B lsdasd
+.RB [ -h ]
+.TP 8
+.B lsdasd
+.RB [ -a ]
+.RB [ -b ]
+.RB [ -s ]
+.RB [ -v ]
+.RB [ -l ]
+.RB [ -c ]
+.RB [ -u ]
+.RB [ --version ]
+.RI [ <bus-ID> " [" <bus-ID> "] ...]]"
+
+.SH DESCRIPTION
+The lsdasd command provides an overview of available DASD devices.
+
+.SH OPTIONS
+.TP 8
+.BR -h | --help
+Print help text.
+.TP
+.BR -s | --short
+Supresses leading "0.0." for bus IDs.
+.TP
+.BR -a | --offline
+Include all (offline) devices.
+.TP
+.BR -b | --base
+Include only base devices.
+.TP
+.BR -c | --compat
+Old output of lsdasd for compatibility.
+.TP
+.BR -l | --long
+Extended output of lsdasd including UID and attributes.
+.TP
+.BR -u | --uid
+Output includes and is sorted by UID.
+.TP
+.BR -v | --verbose
+Only for compatibility (and maybe future) use. This option currently does
+nothing.
+.TP
+\fB--version\fR
+Print the version of the s390-tools package and the command.
+.TP
+\fB<bus-ID>\fR =
+Bus ID of the device(s) that should be displayed.
+
+.SH EXAMPLES
+\fBlsdasd\fR
+.RS
+List all devices that are online.
+.RE
+
+\fBlsdasd\fR 0.0.0193 0.0.0195
+.RS
+Same as above but will only show data for the given devices (if online).
+.RE
+
+.SH AUTHOR
+.nf
+This man-page was written by Stefan Bader <shbader@de.ibm.com>.
+.fi

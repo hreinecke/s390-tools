@@ -1,0 +1,259 @@
+#!/bin/bash
+#==============================================================================
+# Copyright IBM Corp. 2008.
+#
+# chzcrypt
+#
+# Script to modify zcrypt configuration.
+#
+# Author(s): Ralph Wuerthner <rwuerthn@de.ibm.com>
+#	     Felix Beck <felix.beck@de.ibm.com>
+#
+# This file is part of s390-tools
+#
+# s390-tools is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# s390-tools is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with s390-tools; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#==============================================================================
+
+CMD="$( basename $0 )"
+
+function print_usage() {
+	cat <<-EOF
+	Usage: $CMD [<options>] [<cryptographic adapter ids>]
+	Modify zcrypt configuration.
+
+	<options>
+	-e|--enable
+	        Set the given cryptographic adapter(s) online.
+	-d|--disable
+	        Set the given cryptographic adapter(s) offline.
+	-a|-all
+	        Set all available cryptographic adapter(s) online/offline.
+	        Must be used in conjuction with the enable or disable option.
+	-p|--poll-thread-enable
+	        Enable zcrypt's poll thread.
+	-n|--poll-thread-disable
+	        Disable zcrypt's poll thread.
+	-c <timeout>|--config-time=<timeout>
+	        Set configuration timer for re-scanning the AP bus to <timeout>
+	        seconds.
+	-t <poll_timeout>|--poll-timeout=<poll_timeout>
+	        Set poll timer to run poll tasklet all <poll_timeout>
+	        nanoseconds after a request has been queued.
+	-V|--verbose
+	        Print verbose messages.
+	-v|--version
+	        Show version information and exit.
+	-h|--help
+	        Show this help text and exit.
+
+	<cryptographic adapter ids>
+	List with cryptographic adapter ids separated by blanks which will be set
+	online/offline. Must be used in conjuction with the enable or disable option.
+	EOF
+}
+
+function print_version() {
+    cat <<-EOF
+	$CMD: version %S390_TOOLS_VERSION%
+	Copyright IBM Corp. 2007
+	EOF
+}
+
+function verbose() {
+    if [ -n "$VERBOSE" ] ; then
+	echo "$@"
+    fi
+}	
+
+function poll_thread() {
+    if [ "$1" = "1" ] ; then
+	MODE=1
+	verbose "Enabling poll thread."
+    else
+	MODE=0
+	verbose "Disabling poll thread."
+    fi
+    ATTR="$SYSFS/bus/ap/poll_thread"
+    if [ ! -w "$ATTR" ] ; then
+	echo "$CMD: error - unsupported version of zcrypt or driver not loaded!" >&2
+	exit 1
+    fi
+    echo $MODE > $ATTR
+    if [ "$( cat $ATTR )" != "$MODE" ] ; then
+	echo "$CMD: error - unable change poll thread settings!" >&2
+	exit 1
+    fi
+}
+
+function config_time() {
+    TIMEOUT="$( printf "%i" "$1" 2> /dev/null )"
+    if [ $? -ne 0 ] ; then
+	echo "$CMD: error - invalid configuration timeout '$1'!" >&2
+	exit 1
+    fi
+    ATTR="$SYSFS/bus/ap/config_time"
+    verbose "Setting configuration timer to $TIMEOUT seconds."
+    if [ ! -w "$ATTR" ] ; then
+	echo "$CMD: error - unsupported version of zcrypt or driver not loaded!" >&2
+	exit 1
+    fi
+    echo $TIMEOUT > $ATTR
+    if [ "$( cat $ATTR )" != "$TIMEOUT" ] ; then
+	echo "$CMD: error - unable to change configuration timer to $TIMEOUT seconds!" >&2
+	exit 1
+    fi
+}
+
+function poll_timeout() {
+    POLL_TIMEOUT="$( printf "%i" "$1" 2> /dev/null )"
+    if [ $? -ne 0 ] ; then
+	echo "$CMD: error - invalid poll timeout '$1'!" >&2
+	exit 1
+    fi
+    ATTR="$SYSFS/bus/ap/poll_timeout"
+    verbose "Setting poll timeout to $POLL_TIMEOUT seconds."
+    if [ ! -w "$ATTR" ] ; then
+	echo "$CMD: error - unsupported version of zcrypt or driver not loaded!" >&2
+	exit 1
+    fi
+    echo $POLL_TIMEOUT > $ATTR
+    if [ "$( cat $ATTR )" != "$POLL_TIMEOUT" ] ; then
+	echo "$CMD: error - unable to change poll_timeout to $POLL_TIMEOUT seconds!" >&2
+	exit 1
+    fi
+}
+invalid_cmdline() {
+    echo "$CMD: $*" >&2
+    echo "Try '$CMD --help' for more information." >&2
+    exit 1
+}
+
+# Parse command line
+TEMP=`getopt -o edapnc:t:hvV \
+      --long enable,disable,all,poll-thread-enable \
+      --long poll-thread-disable,help,version,verbose \
+      --long config-time:,poll-timeout: \
+     -n "$CMD" -- "$@"`
+if [ $? != 0 ] ; then
+    exit 1
+fi
+eval set -- "$TEMP"
+
+ACTIONSET=
+ONLINE=
+ALL=
+POLL_THREAD=
+CONFIG_TIME=
+POLL_TIMEOUT=
+VERBOSE=
+while true ; do
+    case "$1" in
+	-e|--enable) ACTIONSET=true
+	    ONLINE=1
+	    ONLINE_TEXT=online
+	    shift;;
+	-d|--disable) ACTIONSET=true
+	    ONLINE=0
+	    ONLINE_TEXT=offline
+	    shift;;
+	-a|--all) ALL=true
+	    shift;;
+	-p|--poll-thread-enable) ACTIONSET=true
+	    POLL_THREAD=1
+	    shift;;
+	-n|--poll-thread-disable) ACTIONSET=true
+	    POLL_THREAD=0
+	    shift;;
+	-c|--config-time) ACTIONSET=true
+	    CONFIG_TIME="$2"
+	    shift 2;;
+	-t|--poll-timeout) ACTIONSET=true
+	    POLL_TIMEOUT="$2"
+	    shift 2;;
+	-h|--help) print_usage
+	    exit 0;;
+	-v|--version) print_version
+	    exit 0;;
+	-V|--verbose) VERBOSE=1
+	    shift;;
+	--) shift; break;;
+	*) echo "Internal error!" ; exit 1;;
+    esac
+done
+
+if [ -z "$ACTIONSET" ] ; then
+    invalid_cmdline "error - missing argument!"
+fi
+
+# Check sysfs and zcrypt availability
+if [ -z "$( cat /proc/filesystems | grep sysfs )" ] ; then
+    echo "$CMD: error - sysfs support required!" >&2
+    exit 1
+fi
+SYSFS="$( cat /proc/mounts | awk '$3=="sysfs" { print $2 ; exit }' )"
+if [ -z "$SYSFS" ] ; then
+    echo "$CMD: error - sysfs filesystem must be mounted!" >&2
+    exit 1
+fi
+if [ ! -d "$SYSFS/bus/ap" ] ; then
+    echo "$CMD: error - cryptographic device driver zcrypt is not loaded!" >&2
+    exit 1
+fi
+
+if [ -n "$POLL_THREAD" ] ; then
+    poll_thread $POLL_THREAD
+fi
+
+if [ -n "$CONFIG_TIME" ] ; then
+    config_time "$CONFIG_TIME"
+fi
+
+if [ -n "$POLL_TIMEOUT" ] ; then
+    poll_timeout "$POLL_TIMEOUT"
+fi
+
+if [ -n "$ALL" ] ; then
+    DEV_LIST="$( find $SYSFS/bus/ap/devices -name 'card*' -printf '%f\n' |  \
+	sort | sed -e 's/card/0x/g' )"
+else
+    DEV_LIST="$@"
+fi
+
+if [ -n "$ONLINE" -a -z "$DEV_LIST" ] ; then
+    invalid_cmdline "error - missing cryptographic adapter id(s)!"
+    exit 1
+fi
+
+for DEV in $DEV_LIST ; do
+    CARD="$( printf "card%02x" "$DEV" 2> /dev/null )"
+    if [ $? -ne 0 ] ; then
+	invalid_cmdline "error - '$1' is an invalid cryptographic adapter id!"
+    fi
+    DEV="$SYSFS/bus/ap/devices/$CARD"
+    if [ ! -d "$DEV" ] ; then
+	echo "$CMD: error - cryptographic adapter $CARD does not exist!" >&2
+	exit 1
+    fi
+    if [ ! -w $DEV/online ] ; then
+	continue
+    fi
+    verbose "Setting cryptographic adapter $CARD $ONLINE_TEXT."
+    echo $ONLINE > "$DEV/online" 2> /dev/null
+    if [ "$( cat $DEV/online )" != "$ONLINE" ] ; then
+	echo "$CMD: error - unable to set cryptographic adapter $CARD" \
+             "$ONLINE_TEXT."
+	exit 1
+    fi
+done

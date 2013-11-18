@@ -1,0 +1,25 @@
+#
+# Config file for zfcpdump
+#
+# Copyright IBM Corp. 2003, 2006.
+#
+
+#
+# Linux Kernel
+#
+KERNEL_VERSION=2.6.12
+KERNEL_TARBALL=linux-${KERNEL_VERSION}.tar.bz2
+KERNEL_HOST=http://www.kernel.org/pub/linux/kernel/v2.6/
+
+#
+# e2fsprogs
+#
+E2FS_PROGS_VERSION=1.37
+E2FS_PROGS_TARBALL=e2fsprogs-${E2FS_PROGS_VERSION}.tar.gz
+E2FS_PROGS_HOST=http://mesh.dl.sourceforge.net/sourceforge/e2fsprogs/
+
+#
+# Other definitions
+#
+#WGET_PROXY=proxy.boeblingen.de.ibm.com
+RD_FS=romfs # romfs and ext2 are possible

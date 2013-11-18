@@ -1,0 +1,88 @@
+.TH CHZCRYPT 8 "AUG 2008" "s390-tools"
+.SH NAME
+chzcrypt \- modify zcrypt configuration
+.SH SYNOPSIS
+.TP 9
+.B chzcrypt
+.B -e
+.RB "|"
+.B -d
+.RB "( " -a " | "
+.I <device id>
+[...] )
+.TP
+.B chzcrypt
+.RB "[ " -p " | " -n " ] [ " -c
+.I <timeout>
+]
+.TP
+.B chzcrypt -h
+.TP
+.B chzcrypt -v
+.SH DESCRIPTION
+The
+.B chzcrypt
+command is used to configure cryptographic adapters managed by zcrypt and
+modify zcrypt's AP bus attributes. Attributes may vary depending on the kernel
+version.
+.B chzcrypt
+requires that the sysfs filesystem is mounted.
+.SH OPTIONS
+.TP 8
+.B -e, --enable
+Set the given cryptographic adapter(s) online.
+.TP 8
+.B -d, --disable
+Set the given cryptographic adapter(s) offline.
+.TP 8
+.B -a, --all
+Set all available cryptographic adapter(s) online or offline.
+.TP 8
+.B <device id>
+Specifies a cryptographic adapter which will be set either online or offline.
+A cryptographic adapter can be specified either in decimal or hexadecimal
+notation using a '0x' prefix.
+.TP 8
+.B -p, --poll-thread-enable
+Enable zcrypt's poll thread.
+.TP 8
+.B -n, --poll-thread-disable
+Disable zcrypt's poll thread.
+.TP 8
+.BI "-c, --config-time" " <timeout>"
+Set configuration timer for re-scanning the AP bus to
+.I <timeout>
+seconds.
+.TP 8
+.BI "-t, --poll-timeout" " <poll_timeout>"
+Set poll timer to run poll tasklet all
+.I <poll_timeout>
+nanoseconds.
+.TP 8
+.B -V, --verbose
+Print verbose messages.
+.TP 8
+.B -h, --help
+Print help text and exit.
+.TP 8
+.B -v, --version
+Print version information and exit.
+.SH EXAMPLES
+.TP
+.B chzcrypt -e 0 1 4 5 12
+Will set the cryptographic adapters in decimal notation 0, 1, 4, 5, and 12
+online.
+.TP
+.B chzcrypt -d -a
+Will set all available cryptographic adapters offline.
+.TP
+.B chzcrypt -c 60 -n
+Will set configuration timer for re-scanning the AP bus to 60 seconds and
+disable zcrypt's poll thread.
+.SH SEE ALSO
+\fBlszcrypt\fR(8)
+.SH AUTHOR
+.nf
+This man-page was written by Ralph Wuerthner <rwuerthn@de.ibm.com> and
+Felix Beck <felix.beck@de.ibm.com>.
+.fi

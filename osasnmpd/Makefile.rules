@@ -1,0 +1,13 @@
+#General rules
+
+ifeq ($(strip $(shell which net-snmp-config 2>/dev/null)),)
+LDLIBS = -lucdagent -lucdmibs -lsnmp -lrpmdb -lrpm -lpopt -lrpmio -lwrap \
+	 -lnsl -ldl -lcrypto
+else
+LDLIBS = `net-snmp-config --agent-libs`
+CFLAGS += `net-snmp-config --cflags`
+CPPFLAGS += -DNETSNMP5
+endif
+CPPFLAGS += -I../include
+
+OBJS = ibmOSAMib.o ibmOSAMibUtil.o osasnmpd.o

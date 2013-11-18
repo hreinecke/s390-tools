@@ -1,0 +1,415 @@
+#!/bin/bash
+#==============================================================================
+# Copyright IBM Corp. 2007, 2009
+#
+# chchp
+#
+# Script to modify channel-path state.
+#
+# Author(s): Peter Oberparleiter <peter.oberparleiter@de.ibm.com>
+#
+# This file is part of s390-tools
+#
+# s390-tools is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# s390-tools is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with s390-tools; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#==============================================================================
+
+SYSFS="/sys"
+VERSION="%S390_TOOLS_VERSION%"
+TOOLNAME=${0##*/}
+MAX_CHPID_CSS=255
+MAX_CHPID_ID=255
+CIO_SETTLE="/proc/cio_settle"
+
+# Print help text
+function print_help()
+{
+	cat <<EOF
+Usage: ${TOOLNAME} COMMAND CHPID
+
+Modify the state of channel-path CHPID. CHPID can be a single, hexadecimal
+channel-path identifier, a comma-separated list or a range of identifiers.
+
+COMMANDS:
+-v, --vary VALUE           Logically vary channel-path to VALUE (1=on, 0=off)
+-c, --configure VALUE      Configure channel-path to VALUE (1=on, 0=standby)
+-a, --attribute KEY=VALUE  Set channel-path attribute KEY to VALUE
+-h, --help                 Print this help, then exit
+    --version              Print version information, then exit
+EOF
+}
+
+# Print version information
+function print_version()
+{
+	cat <<EOF
+${TOOLNAME}: version ${VERSION}
+Copyright IBM Corp. 2007, 2009
+EOF
+}
+
+# Print channel-path directory
+function get_chp_dir()
+{
+	local DIR;
+
+	DIR=$(printf "%s/devices/css%x/chp%x.%x" "$SYSFS" "$1" "$1" "$2")
+	if [ ! -d $DIR ] ; then
+		DIR=$(printf "%s/devices/css%x/chp%x.%02x" "$SYSFS" "$1" "$1" \
+		      "$2")
+	fi
+	echo $DIR
+}
+
+# Write and check attribute value
+function write_value()
+{
+	local DIR=$1
+	local KEY=$2
+	local VAL=$3
+	local VAL2
+
+	if [ ! -f $DIR/$KEY ] ; then
+		echo "failed - no such attribute"
+		exit 1
+	fi
+	if [ ! -w $DIR/$KEY ] ; then
+		echo "failed - attribute not writable"
+		exit 1
+	fi
+	if ! echo $VAL > $DIR/$KEY ; then
+		echo "failed - write failed"
+		exit 1
+	fi
+	if ! read < $DIR/$KEY VAL2 ; then
+		echo "failed - could not determine new attribute value"
+		exit 1
+	fi
+	# Skip value comparison for 'status' attribute because input
+	# can be specified in different ways
+	if [ "$KEY" != "status" ] ; then
+		if [ "$VAL" != "$VAL2" ] ; then
+			echo "failed - attribute value not as expected"
+			exit 1
+		fi
+	fi
+	echo done.
+}
+
+# Configure channel-path
+function configure()
+{
+	local CSS=$1
+	local NUM=$2
+	local DIR=$3
+	local VAL=$4
+
+	if [ "$VAL" == "0" ] ; then
+		OP="standby"
+	else
+		OP="online"
+	fi
+
+	printf "Configure %s %x.%02x... " $OP $CSS $NUM
+	write_value $DIR "configure" $VAL
+}
+
+# Vary channel-path
+function vary()
+{
+	local CSS=$1
+	local NUM=$2
+	local DIR=$3
+
+	if [ "$4" == "0" ] ; then
+		VAL="offline"
+	else
+		VAL="online"
+	fi
+
+	printf "Vary %s %x.%02x... " $VAL $CSS $NUM
+	write_value $DIR "status" $VAL
+}
+
+# Modify channel-path attribute
+function attribute()
+{
+	local CSS=$1
+	local NUM=$2
+	local DIR=$3
+	local KEY=${4%%=*}
+	local VAL=${4#*=}
+
+	printf "Attribute %s=%s %x.%02x... " $KEY $VAL $CSS $NUM
+	write_value $DIR $KEY $VAL
+}
+
+# Make sure only one command is specified
+function check_and_set_command()
+{
+	if [ ! -z "$COMMAND" ] ; then
+		echo "$TOOLNAME: Only one of --vary, --configure or " \
+		     "--attribute allowed" >&2
+		exit 1
+	fi
+	COMMAND=$1
+}
+
+# Make sure command argument was specified correctly
+function check_and_set_value()
+{
+	if [ -z "$1" ] ; then
+		echo "$TOOLNAME: --${COMMAND} requires an argument" >&2
+		exit 1
+	fi
+	if [ "$COMMAND" == "attribute" ] ; then
+		local KEY=${1%%=*}
+		local VAL=${1#*=}
+
+		if [ "$KEY" == "$1" ] || [ -z "$KEY" ] || [ -z "$VAL" ] ; then
+			echo "$TOOLNAME: --attribute requires an argument " \
+			     "KEY=VALUE" >&2
+			exit 1
+		fi
+	fi
+	if [ \( "$COMMAND" == "vary" -o "$COMMAND" == "configure" \) -a \
+	     "$1" != "0" -a "$1" != "1" ] ; then
+		echo "$TOOLNAME: Invalid value for --${COMMAND} (only 0 or 1" \
+		    "allowed)" >&2
+		exit 1
+	fi
+	VALUE=$1
+}
+
+# Extract css id from channel-path id string
+function get_chpid_css()
+{
+	local VAR=$1
+	local CHPID=$2
+	local CSS
+	local RESULT
+
+	CSS=${CHPID%%.*}
+	if [ "$CSS" == "$CHPID" ] ; then
+		RESULT=0
+	else
+		let RESULT="0x$CSS" 2>/dev/null
+		if [ -z "$RESULT" ] ; then
+			echo "$TOOLNAME: Invalid channel-path identifier " \
+			     "'$CHPID'" >&2
+			exit 1
+		fi
+		if [ "$RESULT" -lt 0 ] || [ $RESULT -gt $MAX_CHPID_CSS ] ; then
+			echo "$TOOLNAME: Invalid channel-path identifier " \
+			     "'$CHPID'" >&2
+			exit 1
+		fi
+	fi
+	eval $VAR=$RESULT
+}
+
+# Extract id from channel-path id string
+function get_chpid_id()
+{
+	local VAR=$1
+	local CHPID=$2
+	local ID
+	local RESULT
+
+	ID=${CHPID##*.}
+	let RESULT="0x$ID" 2>/dev/null
+	if [ -z "$RESULT" ] ; then
+		echo "$TOOLNAME: Invalid channel-path identifier '$CHPID'" >&2
+		exit 1
+	fi
+	if [ "$RESULT" -lt 0 ] || [ $RESULT -gt $MAX_CHPID_ID ] ; then
+		echo "$TOOLNAME: Invalid channel-path identifier '$CHPID'" >&2
+		exit 1
+	fi
+	eval $VAR=$RESULT
+}
+
+# Perform command specified by COMMAND and VALUE
+function perform_command()
+{
+	local CSS=$1
+	local ID=$2
+	local DIR
+
+	DIR=$(get_chp_dir "$CSS" "$ID")
+	if [ ! -d "$DIR" ] ; then
+		printf "Skipping unknown channel-path "
+		printf "%x.%02x\n" $CSS $ID
+		return
+	fi
+	case $COMMAND in
+	vary)
+		vary $CSS $ID $DIR $VALUE
+		;;
+	configure)
+		configure $CSS $ID $DIR $VALUE
+		;;
+	attribute)
+		attribute $CSS $ID $DIR $VALUE
+		;;
+	esac
+}
+
+# Calculate iterator steps for chpid loop
+function get_iterator_step()
+{
+	local VAR=$1
+	local CSS1=$2
+	local ID1=$3
+	local CSS2=$4
+	local ID2=$5
+	local RESULT
+
+	if [ $CSS1 -eq $CSS2 ] ;then
+		if [ $ID1 -le $ID2 ] ; then	
+			RESULT=1
+		else
+			RESULT=-1
+		fi
+	elif [ $CSS1 -lt $CSS2 ] ; then
+		RESULT=1
+	else
+		RESULT=-1
+	fi
+
+	eval $VAR=$RESULT
+}
+
+function loop_chpids()
+{
+	local CSS1=$1
+	local ID1=$2
+	local CSS2=$3
+	local ID2=$4
+	local FUNC=$5
+	local STEP
+
+	get_iterator_step STEP $1 $2 $3 $4
+	# Loop
+	while true ; do
+		# Perform function
+		eval $FUNC $CSS1 $ID1
+		# Check for loop end
+		if [ $CSS1 -eq $CSS2 ] && [ $ID1 -eq $ID2 ] ; then
+			break
+		fi
+		# Advance iterator
+		let ID1=$ID1+$STEP
+		if [ $ID1 -lt 0 ] ; then
+			let CSS1=$CSS1-1
+			ID1=255
+		elif [ $ID2 -gt 255 ] ; then
+			let CSS1=$CSS1+1
+			ID1=0
+		fi
+	done
+}
+
+# Parse command line parameters
+COMMAND=""
+VALUE=""
+CHPID_LIST=""
+while [ $# -gt 0 ]; do
+	case $1 in
+	-h|--help)
+		print_help
+		exit 0
+		;;
+	--version)
+		print_version
+		exit 0
+		;;
+	-v|--vary)
+		check_and_set_command "vary"
+		check_and_set_value "$2"
+		shift
+		;;
+	-c|--configure)
+		check_and_set_command "configure"
+		check_and_set_value "$2"
+		shift
+		;;
+	-a|--attribute)
+		check_and_set_command "attribute"
+		check_and_set_value "$2"
+		shift
+		;;
+	-*|--*)
+		echo "$TOOLNAME: Invalid option $1" >&2
+		echo "Try '$TOOLNAME --help' for more information" >&2
+		exit 1
+		;;
+	*)
+		if [ -z "$CHPID_LIST" ] ; then
+			CHPID_LIST="$1"
+		else
+			CHPID_LIST="$CHPID_LIST,$1"
+		fi
+		;;
+	esac
+	shift
+done
+
+if [ -z "$COMMAND" ] ; then
+	echo "$TOOLNAME: One of --vary, --configure or --attribute required" >&2
+	exit 1
+fi
+
+if [ -z "$CHPID_LIST" ] ; then
+	echo "$TOOLNAME: Need to specify at least one channel-path ID" >&2
+	exit 1
+fi
+
+if [ ! -e "$SYSFS" ] ; then
+	echo "$TOOLNAME: $SYSFS does not exist" >&2
+	exit 1
+fi
+
+if [ ! -d "$SYSFS" ] ; then
+	echo "$TOOLNAME: $SYSFS is not a directory" >&2
+	exit 1
+fi
+
+# Loop over comma-separated list
+IFS=','
+for CHPID in $CHPID_LIST ; do
+	if [ -z "$CHPID" ] ; then
+		continue
+	fi
+	CHPID_FROM=${CHPID%%-*}
+	if [ "$CHPID" == "$CHPID_FROM" ] ; then
+		CHPID_TO=$CHPID_FROM
+	else
+		CHPID_TO=${CHPID##*-}
+		if [ -z "$CHPID_TO" ] ; then
+			echo "$TOOLNAME: Invalid channel-path identifier " \
+			     "range $CHPID" >&2
+			exit 1
+		fi
+	fi
+	get_chpid_css FROM_CSS $CHPID_FROM
+	get_chpid_id FROM_ID $CHPID_FROM
+	get_chpid_css TO_CSS $CHPID_TO
+	get_chpid_id TO_ID $CHPID_TO
+	loop_chpids $FROM_CSS $FROM_ID $TO_CSS $TO_ID perform_command
+done
+
+if [ -w $CIO_SETTLE ] ; then
+	echo 1 > $CIO_SETTLE
+fi

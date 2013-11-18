@@ -1,0 +1,35 @@
+Description: wait for port scan when setting FCP device online
+Symptom: running chccwdev -e xxxx; echo ... > unit_add in a script
+         does not work
+Problem: The port scan in zfcp runs asynchronously to set_online
+Solution: Wait for the port scan to complete in the zfcp set_online
+          packets due to hardware problems, an additional check for
+Problem-ID: -
+Distros:     RHEL4 : no
+             RHEL5 : no
+             SLES9 : no
+             SLES10: no
+             SLES11: yes
+Preventive: -
+Introduced: -
+PMR: -
+ITPM: -
+---
+ drivers/s390/scsi/zfcp_ccw.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+Index: linux-2.6.27/drivers/s390/scsi/zfcp_ccw.c
+===================================================================
+--- linux-2.6.27.orig/drivers/s390/scsi/zfcp_ccw.c
++++ linux-2.6.27/drivers/s390/scsi/zfcp_ccw.c
+@@ -113,7 +113,9 @@ static int zfcp_ccw_set_online(struct cc
+ 	zfcp_erp_adapter_reopen(adapter, ZFCP_STATUS_COMMON_ERP_FAILED, 85,
+ 				NULL);
+ 	zfcp_erp_wait(adapter);
+-	goto out;
++	up(&zfcp_data.config_sema);
++	flush_work(&adapter->scan_work);
++	return 0;
+ 
+  out_scsi_register:
+ 	zfcp_erp_thread_kill(adapter);

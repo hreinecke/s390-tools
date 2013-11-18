@@ -1,0 +1,75 @@
+.TH ZFCPDBF 1 "DEC 2010" "s390-tools"
+
+.SH NAME
+zfcpdbf \- zfcp trace data sort/analyse tool.
+
+.SH SYNOPSIS
+.br
+\fBzfcpdbf\fR [OPTIONS] <adapter>
+.br
+\fBzfcpdbf\fR {-h|-v}
+
+.SH DESCRIPTION
+\fBzfcpdbf\fR Interprets the information from various logging and tracing sources,
+e.g. zfcp-, qdio- and cio-trace records and, if available, system messages.
+
+.SH OPTIONS
+.TP
+\fB-h\fR, \fB--help\fR
+Print usage information, then exit.
+
+.TP
+\fB-v\fR, \fB--version\fR
+Print version information, then exit.
+
+.TP
+\fB-x <AREA[,AREA]>\fR, \fB--exclude=<AREA[,AREA]>\fR
+list of trace areas to exclude (default none).
+
+.TP
+\fB-i <AREA[,AREA]>\fR, \fB--include=<AREA[,AREA]>\fR
+list of trace areas to include (default all).
+
+.TP
+\fB-z \fR, \fB--zfcp-only\fR
+zfcp trace areas only (short cut).
+
+.TP
+\fB-t <DIFF>\fR, \fB--timediff=<DIFF>\fR
+highlight requests with a round-trip processing time of <DIFF> or more.
+
+.TP
+\fB-e\fR, \fB--def-error\fR
+do NOT show deferred error messages.
+
+.TP
+\fB-f\fR, \fB--force\fR
+force execution on a detected version mismatch.
+
+.TP
+\fB-p <PATH>\fR, \fB--path=<PATH>\fR
+use directory <PATH> for the location of the trace records.
+
+.TP
+\fB-r <PATH>\fR, \fB--root=<PATH>\fR
+prepend <ROOT> to standard trace record location.
+
+.SH PARAMETERS
+<AREA> may be REC, HBA, SAN, SCSI, QDIO, QDIO_SETUP, QDIO_ERROR,
+CIO_TRACE, CIO_MSG, CIO_CRW, KERNEL or MULTIPATH.
+
+<DIFF> is the value in seconds which has to be lapsed between sending the request
+and receiving its response.
+
+<PATH> is specifying the location(directory) of trace records which were pulled
+from another system, e.g. pulled from a dump.
+
+<ROOT> is specifying a directory which has to be prepended to the standard
+location of the trace records, e.g. typically used in conjunction with
+the result of the dbginfo script.
+
+<PATH> and <ROOT> are only useful if used on non-live systems and therefore
+typically used by service- or development-staff.
+
+<adapter> aka busid is specifying the host adapter of which the trace information should be processed. if a 4-digit value is provided it is automaitically extended to the correct format 0f 0.0.xxxx.
+

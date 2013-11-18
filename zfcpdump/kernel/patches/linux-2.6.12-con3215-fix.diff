@@ -1,0 +1,39 @@
+Index: linux-2.6.12/drivers/s390/char/con3215.c
+===================================================================
+--- linux-2.6.12.orig/drivers/s390/char/con3215.c	2005-06-17 21:48:29.000000000 +0200
++++ linux-2.6.12/drivers/s390/char/con3215.c	2007-11-08 17:40:41.000000000 +0100
+@@ -874,7 +874,7 @@ con3215_init(void)
+ 	}
+ 
+ 	cdev = ccw_device_probe_console();
+-	if (!cdev)
++	if (IS_ERR(cdev))
+ 		return -ENODEV;
+ 
+ 	raw3215[0] = raw = (struct raw3215_info *)
+Index: linux-2.6.12/drivers/s390/cio/device.c
+===================================================================
+--- linux-2.6.12.orig/drivers/s390/cio/device.c	2005-06-17 21:48:29.000000000 +0200
++++ linux-2.6.12/drivers/s390/cio/device.c	2007-11-08 17:40:41.000000000 +0100
+@@ -996,7 +996,7 @@ ccw_device_probe_console(void)
+ 	int ret;
+ 
+ 	if (xchg(&console_cdev_in_use, 1) != 0)
+-		return NULL;
++		return ERR_PTR(-EBUSY);;
+ 	sch = cio_probe_console();
+ 	if (IS_ERR(sch)) {
+ 		console_cdev_in_use = 0;
+Index: linux-2.6.12/drivers/s390/char/con3270.c
+===================================================================
+--- linux-2.6.12.orig/drivers/s390/char/con3270.c	2005-06-17 21:48:29.000000000 +0200
++++ linux-2.6.12/drivers/s390/char/con3270.c	2007-11-09 08:52:42.000000000 +0100
+@@ -596,7 +596,7 @@ con3270_init(void)
+ 	}
+ 
+ 	cdev = ccw_device_probe_console();
+-	if (!cdev)
++	if (IS_ERR(cdev))
+ 		return -ENODEV;
+ 	rp = raw3270_setup_console(cdev);
+ 	if (IS_ERR(rp))

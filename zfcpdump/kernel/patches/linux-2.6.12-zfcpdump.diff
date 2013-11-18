@@ -1,0 +1,459 @@
+diff -Naurp linux-2.6.12/arch/s390/kernel/debug.c linux-2.6.12-zfcpdump/arch/s390/kernel/debug.c
+--- linux-2.6.12/arch/s390/kernel/debug.c	2005-06-17 21:48:29.000000000 +0200
++++ linux-2.6.12-zfcpdump/arch/s390/kernel/debug.c	2007-06-04 19:13:56.000000000 +0200
+@@ -574,60 +574,6 @@ static int debug_close(struct inode *ino
+ 	return 0;		/* success */
+ }
+ 
+-/*
+- * debug_register:
+- * - creates and initializes debug area for the caller
+- * - returns handle for debug area
+- */
+-
+-debug_info_t *debug_register
+-    (char *name, int page_order, int nr_areas, int buf_size) 
+-{
+-	debug_info_t *rc = NULL;
+-
+-	if (!initialized)
+-		BUG();
+-	down(&debug_lock);
+-
+-        /* create new debug_info */
+-
+-	rc = debug_info_create(name, page_order, nr_areas, buf_size);
+-	if(!rc) 
+-		goto out;
+-	debug_register_view(rc, &debug_level_view);
+-        debug_register_view(rc, &debug_flush_view);
+-#ifdef DEBUG
+-	printk(KERN_INFO
+-	       "debug: reserved %d areas of %d pages for debugging %s\n",
+-	       nr_areas, 1 << page_order, rc->name);
+-#endif
+-      out:
+-        if (rc == NULL){
+-		printk(KERN_ERR "debug: debug_register failed for %s\n",name);
+-        }
+-	up(&debug_lock);
+-	return rc;
+-}
+-
+-/*
+- * debug_unregister:
+- * - give back debug area
+- */
+-
+-void debug_unregister(debug_info_t * id)
+-{
+-	if (!id)
+-		goto out;
+-	down(&debug_lock);
+-#ifdef DEBUG
+-	printk(KERN_INFO "debug: unregistering %s\n", id->name);
+-#endif
+-	debug_info_put(id);
+-	up(&debug_lock);
+-
+-      out:
+-	return;
+-}
+ 
+ /*
+  * debug_set_level:
+@@ -1270,8 +1216,6 @@ core_initcall(debug_init);
+ module_exit(debug_exit);
+ MODULE_LICENSE("GPL");
+ 
+-EXPORT_SYMBOL(debug_register);
+-EXPORT_SYMBOL(debug_unregister); 
+ EXPORT_SYMBOL(debug_set_level);
+ EXPORT_SYMBOL(debug_stop_all);
+ EXPORT_SYMBOL(debug_register_view);
+diff -Naurp linux-2.6.12/arch/s390/kernel/head.S linux-2.6.12-zfcpdump/arch/s390/kernel/head.S
+--- linux-2.6.12/arch/s390/kernel/head.S	2005-06-17 21:48:29.000000000 +0200
++++ linux-2.6.12-zfcpdump/arch/s390/kernel/head.S	2007-06-04 19:13:56.000000000 +0200
+@@ -467,6 +467,51 @@ startup:basr  %r13,0                    
+ 	la    %r12,_pstart-.LPG1(%r13)   # pointer to parameter area
+ 					 # move IPL device to lowcore
+         mvc   __LC_IPLDEV(4),IPL_DEVICE-PARMAREA(%r12)
++
++#ifdef CONFIG_DUMP_TEST
++
++#
++# fake ipl parameter list for testing purposes
++#
++
++        l     %r2,.Lipl_parameter-.LPG1(%r13)
++        st    %r2, 20(%r0)
++#endif
++
++#
++# save list directed ipl parameters
++#
++
++        lhi  %r2, 0
++        l    %r2, 20(%r0)                # get address of parameter list
++        lr   %r3, %r2                    #
++        al   %r3, 0(%r2)                 # calculate startaddress of xml stream
++        sr   %r0, %r0                    #
++        srst %r0, %r3                    # search for ending of xml string (0)
++        jo   .-4                         #
++        sr   %r0, %r2                    # length of parameters incl. xml
++        lr  %r8, %r0                     # save length for later use
++        l    %r3,.Lbss_end-.LPG1(%r13)   # end of bss
++        lr  %r6, %r3                     # save address of parameter block
++        lhi %r1, 0                       #
++        l    %r1, 0(%r2)                 #
++        lr  %r7, %r3                     # save start address of xml
++        ar  %r7, %r1                     #
++        lhi %r4, 1                       #
++        cr  %r2, %r3                     # start parameters < _end ?
++        jl   0f                          #
++        lhi %r1, 1                       # copy direction is upwards
++        j    1f                          #
++0:      lhi %r1, -1                      # copy direction is downwards
++        ar  %r2, %r0                     #
++        ar  %r3, %r0                     #
++1:      mvc  0(1,%r3), 0(%r2)            # finally copy ipl parameters
++        ar  %r3, %r1                     #
++        ar  %r2, %r1                     #
++        sr  %r0, %r4                     #
++        jne  1b                          #
++
++
+ 	
+ #
+ # clear bss memory
+@@ -480,6 +525,16 @@ startup:basr  %r13,0                    
+         mvcle %r2,%r4,0                 # clear mem
+         jo    .-4                       # branch back, if not finish
+ 
++#
++# finally save parameters needed for list directed ipl
++#
++        l %r1, .Lldipl_parm-.LPG1(%r13)     # address of parameter block
++        st  %r6, 0(%r1)                     #
++        l %r1, .Lldipl_xml-.LPG1(%r13)      # start address of xml
++        st  %r7, 0(%r1)                     #
++        l %r1, .Lldipl_parm_len-.LPG1(%r13) # length of parameter block
++        st  %r8, 0(%r1)
++
+ 	l     %r2,.Lrcp-.LPG1(%r13)	# Read SCP forced command word
+ .Lservicecall:
+ 	stosm .Lpmask-.LPG1(%r13),0x01	# authorize ext interrupts
+@@ -533,6 +588,10 @@ startup:basr  %r13,0                    
+ 	mr    %r2,%r1			# mem size in bytes in %r3
+ 	b     .Lfchunk-.LPG1(%r13)
+ 
++#ifdef CONFIG_DUMP_TEST
++.Lipl_parameter:
++        .long     ipl_parameter
++#endif
+ .Lpmask:
+ 	.byte 0
+ .align 8
+@@ -615,6 +674,10 @@ startup:basr  %r13,0                    
+         bne    .Lnop390-.LPG1(%r13)
+         oi     3(%r12),4                # set P/390 flag
+ .Lnop390:
++        chi    %r0,0x2084               # new stidp format?
++        bne    .Loldfmt-.LPG1(%r13)
++        oi     3(%r12),64               # set new stidp flag
++.Loldfmt:
+ 
+ #
+ # find out if we have an IEEE fpu
+@@ -689,6 +752,9 @@ startup:basr  %r13,0                    
+ .Lmflags:.long machine_flags
+ .Lbss_bgn:  .long  __bss_start
+ .Lbss_end:  .long  _end
++.Lldipl_parm:    .long ldipl_parm
++.Lldipl_xml:     .long ldipl_xml
++.Lldipl_parm_len:.long ldipl_parm_len
+ 
+ 	.org PARMAREA-64
+ .Lduct:	.long 0,0,0,0,0,0,0,0
+diff -Naurp linux-2.6.12/arch/s390/kernel/head64.S linux-2.6.12-zfcpdump/arch/s390/kernel/head64.S
+--- linux-2.6.12/arch/s390/kernel/head64.S	2005-06-17 21:48:29.000000000 +0200
++++ linux-2.6.12-zfcpdump/arch/s390/kernel/head64.S	2007-06-04 19:13:56.000000000 +0200
+@@ -462,7 +462,35 @@ start:
+ startup:basr  %r13,0                     # get base
+ .LPG1:  sll   %r13,1                     # remove high order bit
+         srl   %r13,1
+-        lhi   %r1,1                      # mode 1 = esame
++
++        # store all prefix registers:
++
++        la    %r7,0                               # base register for 0 page
++        la    %r8,0                               # first cpu
++        l     %r11,.Lprefix_array_ptr-.LPG1(%r13) # address of prefix array
++        stap  .Lcurrent_cpu+2-.LPG1(%r13)         # store current cpu address
++
++1:
++        cl    %r8,.Lcurrent_cpu-.LPG1(%r13)  # is ipl cpu ?
++        be    4f-.LPG1(%r13)                 # if yes get next cpu
++2:
++        lr    %r9,%r7
++        sigp  %r9,%r8,0x9                    # stop & store status of cpu
++        bc   8,3f-.LPG1(%r13)                # accepted
++        bc   4,4f-.LPG1(%r13)                # status stored: next cpu
++        bc   2,2b-.LPG1(%r13)                # busy:          try again
++        bc   1,4f-.LPG1(%r13)                # not op:        next cpu
++3:
++        mvc 0(4,%r11),264(%r7)           # copy prefix register to prefix array
++        ahi %r11,4                       # next element in prefix array
++4:
++        la    %r8,1(%r8)                 # next cpu (r8 +=1)
++        cl    %r8,.Llast_cpu-.LPG1(%r13) # is last possible cpu ?
++        bl    1b-.LPG1(%r13)             # jump if not last cpu
++
++        # END of store all prefix registers
++
++        lhi   %r1,2                      # mode 2 = esame + get stored psws
+         slr   %r0,%r0                    # set cpuid to zero
+         sigp  %r1,%r0,0x12               # switch to esame mode
+ 	sam64				 # switch to 64 bit mode
+@@ -471,6 +499,22 @@ startup:basr  %r13,0                    
+ 					 # move IPL device to lowcore
+         mvc   __LC_IPLDEV(4),IPL_DEVICE+4-PARMAREA(%r12)
+ 
++#if 0 /* XXX */
++
++#
++# fake ipl parameter list for testing purposes
++#
++
++        larl  %r2, ipl_parameter
++        st    %r2, 20(%r0)
++
++#endif
++
++#
++# copy xml data
++#
++	llgf %r14,.Lcopy_xml_data-.LPG1(%r13)
++	basr %r14,%r14
+ #
+ # clear bss memory
+ #
+@@ -482,6 +526,17 @@ startup:basr  %r13,0                    
+         mvcle %r2,%r4,0                 # clear mem
+         jo    .-4                       # branch back, if not finish
+ 
++#
++# finally save parameters needed for list directed ipl
++#
++        larl %r1, ldipl_parm            # address of parameter block
++        stg  %r6, 0(%r1)                #
++        larl %r1, ldipl_xml             # start address of xml
++        stg  %r7, 0(%r1)                #
++        larl %r1, ldipl_parm_len        # length of parameter block
++        stg  %r8, 0(%r1)                #
++
++
+ 	l     %r2,.Lrcp-.LPG1(%r13)	# Read SCP forced command word
+ .Lservicecall:
+ 	stosm .Lpmask-.LPG1(%r13),0x01	# authorize ext interrupts
+@@ -548,6 +603,8 @@ startup:basr  %r13,0                    
+ 	.int 0x00020001 # Read SCP code
+ .Lonemb:
+ 	.int 0x100000
++.Lcopy_xml_data:
++	.long copy_xml_data
+ 
+ .Lfchunk:
+ 					 # set program check new psw mask
+@@ -689,6 +746,13 @@ startup:basr  %r13,0                    
+ .Lnop:	.long  0x07000700
+ .Ldiag44:.long 0x83000044
+ 
++.Lcurrent_cpu:
++        .long 0x0
++.Llast_cpu:
++        .long 0x0000ffff
++.Lprefix_array_ptr:
++        .long dump_prefix_array
++
+ 	.org PARMAREA-64
+ .Lduct:	.long 0,0,0,0,0,0,0,0
+ 	.long 0,0,0,0,0,0,0,0
+@@ -763,6 +827,44 @@ _stext:	basr  %r13,0                    
+         basr  %r13,0
+ 	lpswe .Ldw-.(%r13)           # load disabled wait psw
+ #
++
++#
++# save list directed ipl parameters
++#
++copy_xml_data:
++        lghi %r2, 0
++        l    %r2, 20(%r0)               # get address of parameter list
++        lgr  %r3, %r2                   #
++        al   %r3, 0(%r2)                # calculate startaddress of xml stream
++        sgr  %r0, %r0                   #
++        srst %r0, %r3                   # search for ending of xml string (0)
++        jo   .-4                        #
++        sgr  %r0, %r2                   # length of parameters incl. xml
++        lgr  %r8, %r0                   # save length for later use
++        larl %r3, _end                  # end of bss segment (end of kernel)
++        lgr  %r6, %r3                   # save address of parameter block
++        lghi %r1, 0                     #
++        l    %r1, 0(%r2)                #
++        lgr  %r7, %r3                   # save start address of xml
++        agr  %r7, %r1                   #
++        lghi %r4, 1                     #
++        cgr  %r2, %r3                   # start parameters < _end ?
++        jl   0f                         #
++        lghi %r1, 1                     # copy direction is upwards
++        j    1f                         #
++0:      lghi %r1, -1                    # copy direction is downwards
++        agr  %r2, %r0                   #
++        agr  %r3, %r0                   #
++        agr  %r2, %r1                   #
++        agr  %r3, %r1                   #
++1:      mvc  0(1,%r3), 0(%r2)           # finally copy ipl parameters
++        agr  %r3, %r1                   #
++        agr  %r2, %r1                   #
++        sgr  %r0, %r4                   #
++        jne  1b                         #
++        br   %r14
++
++
+             .align 8
+ .Ldw:       .quad  0x0002000180000000,0x0000000000000000
+ .Laregs:    .long  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+diff -Naurp linux-2.6.12/arch/s390/kernel/setup.c linux-2.6.12-zfcpdump/arch/s390/kernel/setup.c
+--- linux-2.6.12/arch/s390/kernel/setup.c	2005-06-17 21:48:29.000000000 +0200
++++ linux-2.6.12-zfcpdump/arch/s390/kernel/setup.c	2007-06-04 19:14:19.000000000 +0200
+@@ -65,9 +65,19 @@ unsigned long __initdata zholes_size[MAX
+ static unsigned long __initdata memory_end;
+ 
+ /*
++ * list directed IPL...
++ */
++void          *ldipl_parm = NULL; /* addr of ldipl param list */
++unsigned long ldipl_parm_len = 0; /* lenght of list including xml part */
++char          *ldipl_xml = NULL;  /* pointer to xml part of param list */
++
++/*
+  * Setup options
+  */
+ extern int _text,_etext, _edata, _end;
++extern void setup_dump_base(void);
++extern void setup_dump_devnos(char *cmdline, unsigned int init_devno,
++			      unsigned int cons_devno);
+ 
+ /*
+  * This is set up by the setup-routine at boot-time
+@@ -479,7 +489,7 @@ setup_memory(void)
+ 	 * partially used pages are not usable - thus
+ 	 * we are rounding upwards:
+ 	 */
+-	start_pfn = (__pa(&_end) + PAGE_SIZE - 1) >> PAGE_SHIFT;
++	start_pfn = (__pa(&_end) + ldipl_parm_len + PAGE_SIZE - 1) >> PAGE_SHIFT;
+ 	end_pfn = max_pfn = memory_end >> PAGE_SHIFT;
+ 
+ 	/* Initialize storage key for kernel pages */
+@@ -576,6 +586,7 @@ setup_arch(char **cmdline_p)
+ 	       "We are running native (64 bit mode)\n");
+ #endif /* CONFIG_ARCH_S390X */
+ 
++	setup_dump_base();
+         ROOT_DEV = Root_RAM0;
+ #ifndef CONFIG_ARCH_S390X
+ 	memory_end = memory_size & ~0x400000UL;  /* align memory end to 4MB */
+@@ -593,7 +604,7 @@ setup_arch(char **cmdline_p)
+ 	init_mm.start_code = PAGE_OFFSET;
+ 	init_mm.end_code = (unsigned long) &_etext;
+ 	init_mm.end_data = (unsigned long) &_edata;
+-	init_mm.brk = (unsigned long) &_end;
++	init_mm.brk = ((unsigned long) &_end) + ldipl_parm_len;
+ 
+ 	parse_cmdline_early(cmdline_p);
+ 
+@@ -611,6 +622,11 @@ setup_arch(char **cmdline_p)
+ 
+         /* Setup default console */
+ 	conmode_default();
++
++	setup_dump_devnos(command_line,
++			  *((unsigned short *) (ldipl_parm + 334)),
++			  console_devno);
++
+ }
+ 
+ void print_cpu_info(struct cpuinfo_S390 *cpuinfo)
+diff -Naurp linux-2.6.12/drivers/s390/char/Makefile linux-2.6.12-zfcpdump/drivers/s390/char/Makefile
+--- linux-2.6.12/drivers/s390/char/Makefile	2005-06-17 21:48:29.000000000 +0200
++++ linux-2.6.12-zfcpdump/drivers/s390/char/Makefile	2007-06-04 19:13:56.000000000 +0200
+@@ -2,7 +2,7 @@
+ # S/390 character devices
+ #
+ 
+-obj-y += ctrlchar.o keyboard.o defkeymap.o
++obj-y += ctrlchar.o keyboard.o defkeymap.o dump.o
+ 
+ obj-$(CONFIG_TN3270) += raw3270.o
+ obj-$(CONFIG_TN3270_CONSOLE) += con3270.o
+diff -Naurp linux-2.6.12/drivers/s390/scsi/zfcp_ccw.c linux-2.6.12-zfcpdump/drivers/s390/scsi/zfcp_ccw.c
+--- linux-2.6.12/drivers/s390/scsi/zfcp_ccw.c	2005-06-17 21:48:29.000000000 +0200
++++ linux-2.6.12-zfcpdump/drivers/s390/scsi/zfcp_ccw.c	2007-06-04 19:13:56.000000000 +0200
+@@ -160,9 +160,7 @@ zfcp_ccw_set_online(struct ccw_device *c
+ 	down(&zfcp_data.config_sema);
+ 	adapter = dev_get_drvdata(&ccw_device->dev);
+ 
+-	retval = zfcp_adapter_debug_register(adapter);
+-	if (retval)
+-		goto out;
++	zfcp_adapter_debug_register(adapter);
+ 	retval = zfcp_erp_thread_setup(adapter);
+ 	if (retval) {
+ 		ZFCP_LOG_INFO("error: start of error recovery thread for "
+diff -Naurp linux-2.6.12/include/asm-s390/debug.h linux-2.6.12-zfcpdump/include/asm-s390/debug.h
+--- linux-2.6.12/include/asm-s390/debug.h	2005-06-17 21:48:29.000000000 +0200
++++ linux-2.6.12-zfcpdump/include/asm-s390/debug.h	2007-06-04 19:13:56.000000000 +0200
+@@ -120,10 +120,16 @@ debug_entry_t* debug_exception_common(de
+ 
+ /* Debug Feature API: */
+ 
+-debug_info_t* debug_register(char* name, int pages_index, int nr_areas,
+-                             int buf_size);
++extern inline debug_info_t* debug_register(char* name, int pages_index, int nr_areas,
++                             int buf_size)
++{
++	return NULL;
++}
+ 
+-void debug_unregister(debug_info_t* id);
++extern inline void debug_unregister(debug_info_t* id)
++{
++	return;
++}
+ 
+ void debug_set_level(debug_info_t* id, int new_level);
+ 
+diff -Naurp linux-2.6.12/init/main.c linux-2.6.12-zfcpdump/init/main.c
+--- linux-2.6.12/init/main.c	2005-06-17 21:48:29.000000000 +0200
++++ linux-2.6.12-zfcpdump/init/main.c	2007-06-04 19:13:56.000000000 +0200
+@@ -633,6 +633,8 @@ static inline void fixup_cpu_present_map
+ #endif
+ }
+ 
++#define makedev(maj, min) ((((uint) maj & 0xff) << 8) | ((uint) min & 0xff))
++
+ static int init(void * unused)
+ {
+ 	lock_kernel();
+@@ -688,6 +690,10 @@ static int init(void * unused)
+ 	system_state = SYSTEM_RUNNING;
+ 	numa_default_policy();
+ 
++	if (sys_mount("tmpfs","/dev","tmpfs", 0, "size=4096"))
++		printk(KERN_EMERG "Error: unable to mount tmpfs\n");
++	if (sys_mknod("/dev/console", S_IFCHR | 0600, makedev(5,1)))
++		printk(KERN_EMERG "Error: unable to create console node\n");
+ 	if (sys_open((const char __user *) "/dev/console", O_RDWR, 0) < 0)
+ 		printk(KERN_WARNING "Warning: unable to open an initial console.\n");
+ 
