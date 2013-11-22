@@ -166,7 +166,9 @@ int menu(void)
 	menu_list();
 
 	if (is_zvm())
-		printf("Note: VM users please use '#cp vi vmsg <input>'\n");
+		printf(" \n");
+		printf("Note: VM users please use '#cp vi vmsg <input> <kernel-parameters>'\n");
+		printf(" \n");
 
 	value = menu_read();
 
