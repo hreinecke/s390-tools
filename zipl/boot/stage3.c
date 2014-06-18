@@ -264,10 +264,15 @@ void start(void)
 		       length);
 	} else {
 		/* check if length is within max value */
-		length = (end + length <= COMMAND_LINE_SIZE) ? length :
-			(COMMAND_LINE_SIZE - end);
+		length = (end + 1 + length <= COMMAND_LINE_SIZE) ? length :
+			(COMMAND_LINE_SIZE - end - 1);
+		/* add blank */
+		command_line[end] = 0x20;
+		end++;
+		/* append string */
 		memcpy((void *)(command_line + end),
 		       (void *)(cextra + begin), length);
+		/* terminate 0 */
 		command_line[COMMAND_LINE_SIZE - 1] = 0;
 	}
 
