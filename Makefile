@@ -7,7 +7,7 @@ LIB_DIRS = libvtoc libu2s libutil libzds
 SUB_DIRS = $(LIB_DIRS) zipl zdump fdasd dasdfmt dasdview tunedasd \
 	   tape390 osasnmpd qetharp ip_watcher qethconf scripts zconf \
 	   vmconvert vmcp man mon_tools dasdinfo vmur cpuplugd ipl_tools \
-	   ziomon iucvterm hyptop cmsfs-fuse qethqoat zfcpdump zdsfs
+	   ziomon iucvterm hyptop cmsfs-fuse qethqoat zfcpdump zdsfs systemd
 
 all: subdirs_make
 

@@ -26,6 +26,10 @@ s390-tools (1.24.1)
      - 60-readahead.rules: udev rules to set increased "default max readahead".
      - 40-z90crypt.rules: udev rules for z90crypt driver
 
+   * systemd units:
+     - iucvtty-login@.service: Instance unit to manage iucvtty instances
+     - ttyrun-getty@.service: Instance unit to manage ttyrun
+
    * zipl:
      Make DASDs or tapes bootable for system IPL or system dump.
 

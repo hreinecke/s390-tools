@@ -58,8 +58,12 @@ SYSCONFDIR      = $(INSTROOT)/etc
 MANDIR          = $(INSTROOT)/usr/share/man
 TOOLS_LIBDIR    = $(INSTROOT)/lib/s390-tools
 ZFCPDUMP_DIR    = $(INSTROOT)/lib/s390-tools/zfcpdump
+# Systemd support files are installed only if a directory is specified
+# for SYSTEMDSYSTEMUNITDIR
+SYSTEMDSYSTEMUNITDIR =
 INSTDIRS        = $(USRSBINDIR) $(USRBINDIR) $(BINDIR) $(LIBDIR) $(MANDIR) \
-			$(SYSCONFDIR) $(TOOLS_LIBDIR) $(ZFCPDUMP_DIR)
+			$(SYSCONFDIR) $(TOOLS_LIBDIR) $(ZFCPDUMP_DIR) \
+			$(SYSTEMDSYSTEMUNITDIR)
 OWNER           = $(shell id -un)
 GROUP		= $(shell id -gn)
 export INSTROOT BINDIR LIBDIR MANDIR OWNER GROUP

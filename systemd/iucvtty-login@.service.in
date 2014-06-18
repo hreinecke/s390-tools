@@ -1,0 +1,26 @@
+# Systemd unit for starting iucvtty instances.
+#
+# The instance ID corresponds to the terminal identifier for the iucvtty
+# instance.
+#
+
+[Unit]
+Description=iucvtty login for terminal ID %I
+Documentation=man:iucvtty(1) man:iucvconn(1) man:login(1)
+After=systemd-user-sessions.service plymouth-quit-wait.service
+After=rc-local.service
+Before=getty.target
+Conflicts=rescue.service
+IgnoreOnIsolate=yes
+
+
+[Service]
+ExecStart=-@usrbin_path@/iucvtty %I
+KillMode=process
+Restart=always
+RestartSec=0
+IgnoreSIGPIPE=no
+SendSIGHUP=yes
+
+[Install]
+WantedBy=getty.target
