@@ -556,6 +556,8 @@ int main(int argc, char **argv)
 		return 1;
 	} else {
 		opts.ifname = argv[optind];
+		if (strlen(opts.ifname) >= IFNAMSIZ)
+			return -EINVAL;
 	}
 
 	oat_data.command = 0;
@@ -587,7 +589,7 @@ int main(int argc, char **argv)
 		return errno;
 	}
 
-	strcpy(ifr.ifr_name, opts.ifname);
+	strncpy(ifr.ifr_name, opts.ifname, IFNAMSIZ);
 	oat_data.command = opts.scope;
 	ifr.ifr_ifru.ifru_data = (void *)&oat_data;
 
