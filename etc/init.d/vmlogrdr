@@ -1,0 +1,98 @@
+#!/bin/sh
+# Copyright (c) 2003 SUSE LINUX AG Nuernberg, Germany.
+#
+# Submit feedback to http://www.suse.de/feedback/
+#
+# /etc/init.d/vmlogrdr
+#
+#   and symbolic its link
+#
+# /use/sbin/rcvmlogrdr
+#
+#
+### BEGIN INIT INFO
+# Provides: vmlogrdr
+# Required-Start: $network $remote_fs
+# Required-Stop:  $null
+# Default-Start:  3 5
+# Default-Stop:   0 1 6
+# Short-Description:    Linux - z/VM Log reader
+# Description:    System startup script for the Linux - z/VM Log reader
+### END INIT INFO
+#
+
+# Local settings
+SERVICE=LOGREC
+DEVNODE=/dev/vmlogrdr_${SERVICE}
+
+# Shell functions sourced from /etc/rc.status:
+#      rc_check         check and set local and overall rc status
+#      rc_status        check and set local and overall rc status
+#      rc_status -v     ditto but be verbose in local rc status
+#      rc_status -v -r  ditto and clear the local rc status
+#      rc_failed        set local and overall rc status to failed
+#      rc_failed <num>  set local and overall rc status to <num><num>
+#      rc_reset         clear local rc status (overall remains)
+#      rc_exit          exit appropriate to overall rc status
+. /etc/rc.status
+
+# First reset status of this service
+rc_reset
+
+
+RETVAL=0
+
+start() {
+	echo -n "Starting z/VM log reader for service $SERVICE... "
+	if [ -e $DEVNODE ]; then
+		echo -n "(already running)"
+		rc_status -v
+		rc_exit
+	fi
+	modprobe vmlogrdr 2>&1
+	if [ "$?" -ne 0 ] ; then
+	    rc_failed 1
+	fi
+	rc_status -v
+}
+
+stop() {
+	echo "Stopping z/VM log reader for service $SERVICE... "
+	rmmod vmlogrdr
+	rc_status -v
+}
+
+restart() {
+	stop
+	start
+}
+
+status() {
+	echo -n "Checking z/VM log reader for service $SERVICE... "
+	if [ ! -e $DEVNODE ]; then
+		rc_failed 1
+	fi
+	rc_status -v
+}
+
+# How are we called?
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	status)
+		status
+		;;
+	restart|reload)
+		restart
+		;;
+	*)
+		echo "Usage: vmlogrdr {start|stop|status|restart|reload}"
+		RETVAL=1
+esac
+
+exit $RETVAL
+
