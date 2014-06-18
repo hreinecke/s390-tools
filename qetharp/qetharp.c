@@ -470,7 +470,7 @@ qetharp_usage(void)
 static int
 qetharp_parse_info(struct option_info *opin)
 {
-	if (opin->dev_name && (strlen(opin->dev_name) > IFNAMSIZ)) {
+	if (opin->dev_name && (strlen(opin->dev_name) >= IFNAMSIZ)) {
 		printf("\nError: interface name too long\n");
 		return -1;
 	}
