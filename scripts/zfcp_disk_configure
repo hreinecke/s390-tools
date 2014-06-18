@@ -1,0 +1,319 @@
+#!/bin/sh
+#
+# zfcp_disk_configure
+#
+# Configures a zfcp disk
+#
+# Usage:
+#   zfcp_disk_configure <ccwid> <wwpn> <lun> <online>
+#
+#	ccwid = x.y.ssss where
+#		x is always 0 until IBM creates something that uses that number
+#		y is the logical channel subsystem (lcss) number. Most often this is 0, but it could be non-zero
+#		ssss is the four digit subchannel address of the device, in hexidecimal, with leading zeros.
+#	online = 0 to take the device offline
+#		 1 to bring the device online
+#
+# Return codes
+#   1  sysfs not mounted
+#   2  invalid value for <online>
+#   3  device <ccwid> does not exist
+#   4  WWPN invalid
+#   5  Could not activate WWPN for adapter
+#   6  Could not activate zFCP disk 
+#   7  SCSI disk could not be deactivated
+#   8  zFCP LUN could not be deregistered
+#   9  zFCP WWPN could not be deregistered
+#
+
+if [ "${DEBUG}" != "yes" ]; then
+  DEBUG="no"
+fi
+
+mesg () {
+    echo "$@"
+}
+
+debug_mesg () {
+    case "$DEBUG" in
+        yes) mesg "$@" ;;
+        *) ;;
+    esac
+}
+
+if [ $# -ne 4 ] ; then
+    echo "Usage: $0  <ccwid> <wwpn> <lun> <online>"
+    echo "	ccwid = x.y.ssss where"
+    echo "		x is always 0 until IBM creates something that uses that number"
+    echo "		y is the logical channel subsystem (lcss) number. Most often this is 0, but it could be non-zero"
+    echo "		ssss is the four digit subchannel address of the device, in hexidecimal, with leading zeros."
+    echo "	online = 0 to take the device offline"
+    echo "		 1 to bring the device online"
+    exit 1
+fi
+
+# Get the mount point for sysfs
+while read MNTPT MNTDIR MNTSYS MNTTYPE; do
+    if test "$MNTSYS" = "sysfs"; then
+	SYSFS="$MNTDIR"
+	break;
+    fi 
+done </proc/mounts
+
+if [ -z "$SYSFS" ]; then
+    mesg "/sysfs not present"
+    exit 1
+fi
+
+udev_timeout=30
+CCW_CHAN_ID=$1
+FCP_WWPN=${2#0x*}
+FCP_LUN=${3#0x*}
+ONLINE=$4
+# normalise to lower case
+FCP_WWPN=`echo $FCP_WWPN | sed 's/A/a/g;s/B/b/g;s/C/c/g;s/D/d/g;s/E/e/g;s/F/f/g'`
+FCP_LUN=`echo $FCP_LUN | sed 's/A/a/g;s/B/b/g;s/C/c/g;s/D/d/g;s/E/e/g;s/F/f/g'`
+
+if [ -z "$CCW_CHAN_ID" ] ; then
+    mesg "No CCW device specified"
+    exit 1
+fi
+
+if [ -z "$ONLINE" ] || [ "$ONLINE" -ne "1" -a "$ONLINE" -ne "0" ]; then
+    mesg "Invalid device status $ONLINE"
+    exit 2
+fi
+
+_ccw_dir=${SYSFS}/bus/ccw/devices
+
+_zfcp_dir="$_ccw_dir/$CCW_CHAN_ID"
+
+if test ! -d "$_zfcp_dir" ; then
+    mesg "No device ${CCW_CHAN_ID}"
+    exit 3
+fi
+
+RULES_DIR=/etc/udev/rules.d
+RULES_FILE=51-zfcp-${CCW_CHAN_ID}.rules
+
+if [ ! -f ${RULES_DIR}/${RULES_FILE} ]; then
+    debug_mesg "No configuration file for adapter ${CCW_CHAN_ID}"
+fi
+
+# Check whether we need to do something
+read allow_lun_scan < /sys/module/zfcp/parameters/allow_lun_scan
+if [ "$allow_lun_scan" = "Y" ] ; then
+    for host in ${_zfcp_dir}/host* ; do
+	[ -d $host ] || continue
+	hba_num=${host##*host}
+    done
+    read port_type < /sys/class/fc_host/host${hba_num}/port_type
+    if [ "$port_type" = "NPIV VPORT" ] ; then
+	auto_lun_scan=1
+    fi
+
+    if [ -z "${hba_num}" ] ; then
+	if [ "$ONLINE" -eq "1" ]; then
+	    debug_mesg "FCP adapter ${CCW_CHAN_ID} not configured"
+	    exit 1
+	else
+	    debug_mesg "FCP adapter ${CCH_CHAN_ID} already deconfigured"
+	    exit 0
+	fi
+    fi
+elif [ -d ${_zfcp_dir}/0x${FCP_WWPN}/0x${FCP_LUN} ]; then
+    if [ "$ONLINE" -eq "1" ]; then
+	debug_mesg "FCP disk ${FCP_WWPN}:${FCP_LUN} already configured"
+	exit 0
+    fi
+else
+    if [ "$ONLINE" -eq "0" ]; then
+	debug_mesg "FCP disk ${FCP_WWPN}:${FCP_LUN} does not exist"
+	exit 0
+    fi
+fi
+
+if [ "$ONLINE" -eq "1" ]; then
+    # Configure SCSI disk
+    debug_mesg "Configuring FCP disk ${FCP_WWPN}:${FCP_LUN}"
+
+    # Check whether the wwpn exists
+    if [ "$auto_lun_scan" = 1 ] ; then
+    	for rport in /sys/class/fc_remote_ports/rport-${hba_num}:* ; do
+	    [ -f ${rport}/port_name ] || continue
+	    read port_name < ${rport}/port_name
+	    if [ "$port_name" = "0x${FCP_WWPN}" ] ; then
+		for t in ${rport}/device/target* ; do
+		    _targetid=${t#*target}
+		done
+		_zfcp_wwpn_dir=${rport}
+		break;
+	    fi
+	done
+    else
+	_zfcp_wwpn_dir="${_zfcp_dir}/0x${FCP_WWPN}"
+    fi
+    if [ ! -d "${_zfcp_wwpn_dir}" ] ; then
+	mesg "WWPN ${FCP_WWPN} for adapter ${CCW_CHAN_ID} not found"
+	exit 5
+    fi
+    # Check and configure the zfcp-lun
+    if [ "$auto_lun_scan" = 1 ] ; then
+	if [ -n "${_targetid}" ] ; then
+	    for _lun in /sys/class/scsi_device/${_targetid}:* ; do
+		[ -f ${_lun}/device/fcp_lun ] || continue
+		read _lunid < ${_lun}/device/fcp_lun
+		if [ "${_lunid}" = "0x${FCP_LUN}" ] ; then
+		    _zfcp_lun_dir="${_lun}/device"
+		    break;
+		fi
+	    done
+	fi
+	if [ -z "$_zfcp_lun_dir" ] ; then
+	    mesg "Could not activate FCP disk ${FCP_WWPN}:${FCP_LUN}"
+	    exit 6
+	fi
+    else
+	# Check whether the WWPN is activated
+	if [ `cat ${_zfcp_wwpn_dir}/failed` -eq "1" ] ; then
+            mesg "WWPN ${FCP_WWPN} invalid."
+            exit 4 
+	fi
+	if [ ! -d "${_zfcp_wwpn_dir}/0x${FCP_LUN}" ] ; then
+	    echo "0x${FCP_LUN}" > ${_zfcp_wwpn_dir}/unit_add
+	    /sbin/udevadm settle
+	fi
+	# Re-check whether the disk could be activated
+	if [ ! -d "${_zfcp_wwpn_dir}/0x${FCP_LUN}" ] ; then
+	    mesg "Could not activate FCP disk ${FCP_WWPN}:${FCP_LUN}"
+	    exit 6
+	fi
+	# Check for failed disks
+	read wwpn_status < ${_zfcp_wwpn_dir}/0x${FCP_LUN}/status
+	while [ "$wwpn_status" != 0 ] ; do
+	    sleep 1
+	    read wwpn_status < ${_zfcp_wwpn_dir}/0x${FCP_LUN}/in_recovery
+	    [ "$wwpn_status" = 0 ] && break
+	done
+	read wwpn_status < ${_zfcp_wwpn_dir}/0x${FCP_LUN}/failed
+	if [ "$wwpn_status" = 1 ] ; then
+	    debug_mesg "ERP failed on FCP disk ${FCP_WWPN}:${FCP_LUN}"
+	    exit 7
+	fi
+    fi
+else
+    # Deconfigure SCSI disk
+    debug_mesg "Deconfiguring FCP disk ${FCP_WWPN}:${FCP_LUN}"
+
+    _zfcp_wwpn_dir="${_zfcp_dir}/0x${FCP_WWPN}"
+    # Find the correspondig SCSI disk
+    for host_dir in $_zfcp_dir/host*; do
+	if [ -d $host_dir ] ; then
+	    _zfcp_scsi_host_dir=$host_dir
+	    break;
+	fi
+    done
+    if [ -d "$_zfcp_scsi_host_dir" ] ; then
+        # Deregister the disk from SCSI layer
+	for target in $_zfcp_scsi_host_dir/rport-*/target*/* ; do
+	    [ "$target" != "${target##*/fc_transport}" ] && continue
+	    if [ -d "$target" ] && [ -d "$target/scsi_device" ] ; then
+		_zfcp_scsi_id=${target##*/}
+		read _zfcp_tmp_hba < ${target}/hba_id
+		read _zfcp_tmp_wwpn < ${target}/wwpn
+		read _zfcp_tmp_lun < ${target}/fcp_lun
+		if [ "0x${FCP_LUN}" = "$_zfcp_tmp_lun" -a "0x${FCP_WWPN}" = "$_zfcp_tmp_wwpn" ] ; then
+		    if [ "$auto_lun_scan"  = 1 ] ; then
+			mesg "Could not deactivate SCSI disk ${_zfcp_scsi_id}"
+			exit 7
+		    else
+			echo 1 > $target/delete
+			_zfcp_scsi_dir=$target
+		    fi
+		    break;
+		fi
+	    fi
+	done
+	/sbin/udevadm settle
+    else
+	debug_mesg "No SCSI disk found for FCP disk ${FCP_WWPN}:${FCP_LUN}"
+    fi
+
+    # Re-check whether the SCSI disk is gone
+    num=$udev_timeout
+    while [ $num -gt 0 ] ; do
+	[ -d "${_zfcp_scsi_dir}" ] || break
+	let num=$num-1
+	sleep 1
+    done
+    if [ -d "${_zfcp_scsi_dir}" ]; then
+	mesg "Could not deactivate SCSI disk ${_zfcp_scsi_id}"
+	exit 7
+    fi
+
+    # Wait for udev to catch up
+    /sbin/udevadm settle
+
+    # check multipathing
+    _zfcp_scsi_dev=$(multipathd -k'show paths' 2> /dev/null | sed -n "s/$_zfcp_target_id \(sd[a-z]*\).*/\1/p")
+    [ "$_zfcp_scsi_dev" ] && multipathd -k"del path $_zfcp_scsi_dev"
+
+    # Deconfigure the FCP_LUN
+    : ${_zfcp_wwpn_dir}
+    echo "0x${FCP_LUN}" > ${_zfcp_wwpn_dir}/unit_remove
+    if [ -d "${_zfcp_wwpn_dir}/0x${FCP_LUN}" ]; then
+	mesg "Could not deregister FCP LUN ${FCP_LUN}"
+	exit 8
+    fi
+
+    # Find all remaining activated disks
+    ZFCP_LUNS=
+    for _tmp_wwpn_dir in ${_zfcp_dir}/0x*; do
+	if [ -d "$_tmp_wwpn_dir" ]; then
+	    tmp_wwpn=$(basename $_tmp_wwpn_dir)
+	    # Find all luns
+	    for _tmp_lun_dir in ${_tmp_wwpn_dir}/0x*; do
+		if [ -d "$_tmp_lun_dir" ]; then
+		    tmp_lun=$(basename $_tmp_lun_dir)
+		    tmp_port="${tmp_wwpn}:${tmp_lun}"
+		    ZFCP_LUNS="$ZFCP_LUNS
+$tmp_port"
+		fi
+	    done
+	fi
+    done
+fi
+
+# And now update the rules file
+if test -d ${RULES_DIR}; then
+    # Find all WWPNs
+
+    read online < ${_zfcp_dir}/online;
+    if [ $online -eq 0 ] ; then
+	exit 0
+    fi
+
+    for port in ${_zfcp_dir}/0x* ; do
+	[ -d $port ] || continue;
+	[ -w $port/unit_remove ] || continue;
+	port_list="$port_list ${port##*/}"
+    done
+
+    cat > ${RULES_DIR}/${RULES_FILE} <<EOF
+# Configure zFCP device at ${CCW_CHAN_ID}
+ACTION=="add", SUBSYSTEM=="ccw", KERNEL=="$CCW_CHAN_ID", IMPORT{program}="collect $CCW_CHAN_ID %k $CCW_CHAN_ID zfcp"
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="zfcp", IMPORT{program}="collect $CCW_CHAN_ID %k $CCW_CHAN_ID zfcp"
+ACTION=="add", ENV{COLLECT_$CCW_CHAN_ID}=="0", ATTR{[ccw/$CCW_CHAN_ID]online}="1"
+EOF
+    for port in $port_list; do
+	for lun in ${_zfcp_dir}/$port/0x* ; do
+	    [ -d $lun ] || continue;
+	    [ -r $lun/status ] || continue;
+	    cat >> ${RULES_DIR}/${RULES_FILE} <<EOF
+ACTION=="add", KERNEL=="rport-*", ATTR{port_name}=="$port", SUBSYSTEMS=="ccw", KERNELS=="$CCW_CHAN_ID", ATTR{[ccw/$CCW_CHAN_ID]$port/unit_add}="${lun##*/}"
+EOF
+	done
+    done
+fi
+
+# EOF
