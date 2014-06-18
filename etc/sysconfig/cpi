@@ -1,0 +1,22 @@
+## Path:        Kernel/CPI
+## Description: set Control Program Indentification data
+## Type:        list(yes,no)
+## Default:     no
+#
+# Set Control Program Identification data
+#
+CPI_SET="yes"
+
+## Type:        string
+## Default:     ""
+#
+# CPI system name
+#
+CPI_SYSTEM_NAME=""
+
+## Type:        string
+## Default:     ""
+#
+# CPI sysplex name
+#
+CPI_SYSPLEX_NAME=""

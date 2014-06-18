@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+# Copyright (c) 2001-2002 SuSE Linux AG, Nuernberg, Germany.
+# Copyright (c) 2008 SuSE LINUX Products GmbH, Nuernberg, Germany.
+# All rights reserved.
+#
+# /etc/init.d/boot.cpi
+#
+### BEGIN INIT INFO
+# Provides:          boot.cpi
+# Required-Start:    boot.rootfsck
+# Required-Stop:     $null
+# Should-Start:
+# X-Start-Before:
+# Default-Start:     B S
+# Default-Stop:
+# Description:       Set Control Program Identification data
+# Short-Description: Set Control Program Identification data
+### END INIT INFO
+
+. /etc/rc.status
+. /etc/sysconfig/cpi
+
+rc_reset
+
+case "$1" in
+    start|restart|reload)
+    	if test "$CPI_SET" == "yes"; then
+    		if test ! -e /sys/firmware/cpi; then
+    			echo -n "sclp_cpi interface not found"
+    			rc_status -s
+    			rc_exit
+    		fi
+    		echo "$CPI_SYSTEM_NAME" >/sys/firmware/cpi/system_name
+    		echo "$CPI_SYSPLEX_NAME" >/sys/firmware/cpi/sysplex_name
+    		echo "LINUX   " >/sys/firmware/cpi/system_type
+    		awk "BEGIN { split(\"`uname -r`\",x,\".\"); printf(\"0x0000000000%02x%02x%02x\", x[1],x[2],x[3]) }" >/sys/firmware/cpi/system_level
+    		echo 1 >/sys/firmware/cpi/set
+	    	rc_status -v -r
+	else
+		rc_status -u
+    	fi
+	;;
+    stop)
+    	rc_status -s
+	;;
+    status)
+	rc_status -s
+	;;
+    *)
+	echo "Usage: $0 {start|stop|status|restart|reload}"
+	exit 1
+	;;
+esac
+
+rc_exit
