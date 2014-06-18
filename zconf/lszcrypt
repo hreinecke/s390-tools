@@ -11,10 +11,12 @@ CAP_RSA2K="RSA 2K Clear Key"
 CAP_RSA4K="RSA 4K Clear Key"
 CAP_CCA="CCA Secure Key"
 CAP_RNG="Long RNG"
+CAP_EP11="EP11 Secure Key"
 
 let MASK_RSA4K=0x60000000
 let MASK_COPRO=0x10000000
 let MASK_ACCEL=0x08000000
+let MASK_EP11=0x04000000
 
 function print_usage() {
 	cat <<-EOF
@@ -126,6 +128,8 @@ show_capability() {
 			CAPS+="$CAP_RSA4K\n"
 			CAPS+="$CAP_CCA\n"
 			CAPS+="$CAP_RNG"
+		elif (( FUNC_VAL&$MASK_EP11 )) ; then
+			CAPS+="$CAP_EP11"
 		else
 			CAPS="Detailed capability information for $CARD"
 			CAPS+=" (hardware type $HWTYPE) is not available."
