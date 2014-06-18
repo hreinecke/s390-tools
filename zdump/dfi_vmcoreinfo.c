@@ -46,22 +46,10 @@ static struct {
 	struct os_info	*os_info;
 } l;
 
-static inline u32 csum_partial(const void *buff, int len, u32 sum)
-{
-	register unsigned long reg2 asm("2") = (unsigned long) buff;
-	register unsigned long reg3 asm("3") = (unsigned long) len;
-
-	asm volatile(
-		"0:     cksm    %0,%1\n"        /* do checksum on longs */
-		"       jo      0b\n"
-		: "+d" (sum), "+d" (reg2), "+d" (reg3) : : "cc", "memory");
-	return sum;
-}
-
 static u32 os_info_csum(struct os_info *os_info)
 {
 	int size = sizeof(*os_info) - offsetof(struct os_info, version_major);
-	return csum_partial(&os_info->version_major, size, 0);
+	return zg_csum_partial(&os_info->version_major, size, 0);
 }
 
 static struct os_info *os_info_get(void)

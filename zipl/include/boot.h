@@ -18,7 +18,7 @@
 #include "disk.h"
 #include "job.h"
 
-#define STAGE2_BLK_CNT_MAX	16 /* Stage 1b can load up to 16 blocks */
+#define STAGE2_BLK_CNT_MAX	24 /* Stage 1b can load up to 24 blocks */
 #define STAGE1B_BLK_CNT_MAX	2  /* Stage 1 can load up to 2 blocks */
 
 /* Boot info */
@@ -28,6 +28,7 @@
 
 #define BOOT_INFO_DEV_TYPE_ECKD		0x00
 #define BOOT_INFO_DEV_TYPE_FBA		0x01
+#define BOOT_INFO_DEV_TYPE_SCSI         0x02
 
 #define BOOT_INFO_BP_TYPE_IPL		0x00
 #define BOOT_INFO_BP_TYPE_DUMP		0x01
@@ -38,6 +39,31 @@
 #define BOOT_INFO_FLAGS_ARCH		0x00
 #endif
 
+/* SCSI dump super block */
+
+struct scsi_dump_sb {
+	uint64_t        magic;
+	uint64_t        version;
+	uint64_t        part_start;
+	uint64_t        part_size;
+	uint64_t        dump_offset;
+	uint64_t        dump_size;
+	uint64_t        csum_offset;
+	uint64_t        csum_size;
+	uint64_t        csum;
+} __attribute((packed));
+
+#define SCSI_DUMP_SB_MAGIC	0x5a46435044554d50ULL; /* ZFCPDUMP */
+/* To avoid a csum entry of 0 a seed is used */
+#define SCSI_DUMP_SB_SEED	0x12345678
+#define SCSI_DUMP_SB_CSUM_SIZE  4096
+
+/* SCSI dump parameter */
+
+struct scsi_dump_param {
+	uint64_t block;
+	uint64_t reserved;
+} __attribute((packed));
 /* ECKD dump parameter */
 
 struct eckd_dump_param {
@@ -60,6 +86,7 @@ struct boot_info_bp_dump {
 	union {
 		struct eckd_dump_param eckd;
 		struct fba_dump_param fba;
+		struct scsi_dump_param scsi;
 	} param;
 	uint8_t		unused[16];
 } __attribute__ ((packed));
@@ -145,9 +172,9 @@ struct boot_fba_stage0 {
 } __attribute__ ((packed));
 
 struct boot_fba_stage1b {
-	struct boot_fba_locread locread[16];
-	struct boot_fba_locdata locdata[16];
-	uint8_t unused[640];
+	struct boot_fba_locread locread[STAGE2_BLK_CNT_MAX];
+	struct boot_fba_locdata locdata[STAGE2_BLK_CNT_MAX];
+	uint8_t unused[448];
 } __attribute__ ((packed));
 
 /* Boot data structures for ECKD disks */
@@ -194,9 +221,9 @@ struct boot_eckd_stage1 {
 } __attribute__ ((packed));
 
 struct boot_eckd_stage1b {
-	struct boot_eckd_ssrt ssrt[16];
-	struct boot_eckd_seekarg seek[16];
-	uint8_t unused[384];
+	struct boot_eckd_ssrt ssrt[STAGE2_BLK_CNT_MAX];
+	struct boot_eckd_seekarg seek[STAGE2_BLK_CNT_MAX];
+	uint8_t unused[64];
 } __attribute__ ((packed));
 
 /* Stage 2 boot menu parameter structure */
@@ -228,7 +255,7 @@ struct boot_stage3_params {
 
 /* Tape IPL bootloader parameter structure */
 
-#define BOOT_TAPE_IPL_PARAMS_OFFSET	0x100
+#define BOOT_TAPE_IPL_PARAMS_OFFSET	0x200
 
 struct boot_tape_ipl_params {
 	uint64_t parm_addr;
@@ -277,6 +304,7 @@ int boot_init_fba_stage1b(struct boot_fba_stage1b *stage1b,
 			  disk_blockptr_t *stage2_list,
 			  blocknum_t stage2_count);
 int boot_get_eckd_stage2(void** data, size_t* size, struct job_data* job);
+size_t get_stage3_size();
 int boot_get_stage3(void** buffer, size_t* bytecount, address_t parm_addr,
 		    address_t initrd_addr, size_t initrd_len,
 		    address_t image_addr, int extra_parm, uint16_t flags);

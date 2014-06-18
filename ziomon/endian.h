@@ -1,7 +1,7 @@
 /*
  * FCP adapter trace utility
  *
- * Endianess conversion functions
+ * Endianness conversion functions
  *
  * Copyright IBM Corp. 2008
  * Author(s): Martin Peschke <mp3@de.ibm.com>

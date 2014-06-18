@@ -1,8 +1,7 @@
 /*
- * s390-tools/zipl/src/zipl.c
- *   zSeries Initial Program Loader tool.
+ * zipl - zSeries Initial Program Loader tool
  *
- * Copyright IBM Corp. 2001, 2009.
+ * Copyright IBM Corp. 2001, 2014
  *
  * Author(s): Carsten Otte <cotte@de.ibm.com>
  *            Peter Oberparleiter <Peter.Oberparleiter@de.ibm.com>
@@ -41,7 +40,7 @@ int dry_run = 1;
 static const char tool_name[] = "zipl: zSeries Initial Program Loader";
 
 /* Copyright notice */
-static const char copyright_notice[] = "Copyright IBM Corp. 2001, 2009";
+static const char copyright_notice[] = "Copyright IBM Corp. 2001, 2014";
 
 /* Usage information */
 static const char* usage_text[] = {
@@ -72,8 +71,6 @@ static const char* usage_text[] = {
 "                                disk partition listed in file DEVLIST",
 "-f, --force                     Disable sanity check while producing a",
 "                                multi-volume dump",
-"-D, --dumptofs DUMPDEV[,SIZE]   Install a system dump record for dumping to",
-"                                filesystem on partition identified by DUMPDEV",
 "-m, --menu MENU                 Install multi-boot configuration MENU",
 "-n, --noninteractive            Answer all confirmation questions with 'yes'",
 "-V, --verbose                   Provide more verbose output",
@@ -120,7 +117,7 @@ int
 main(int argc, char* argv[])
 {
 	struct disk_info* info;
-	disk_blockptr_t program_table, *stage1b_list;
+	disk_blockptr_t program_table, scsi_dump_sb_blockptr, *stage1b_list;
 	blocknum_t stage1b_count;
 	struct job_data* job;
 	char* device;
@@ -166,19 +163,38 @@ main(int argc, char* argv[])
 	umask(077);
 	/* Do it */
 	switch (job->id) {
+	case job_dump_partition:
+		if (disk_is_tape(job->data.dump.device) ||
+		    !disk_is_scsi(job->data.dump.device, &job->target)) {
+			rc = install_dump(job->data.dump.device, &job->target,
+					  job->data.dump.mem);
+			break;
+		}
+		/* Dump to a raw SCSI partition */
+		if (job->data.dump.mem != -1uLL) {
+			error_reason("Dump size can not be limited for "
+				     "partition dump on a SCSI disk");
+			rc = -1;
+			break;
+		}
+		rc = check_job_dump_images(&job->data.dump, job->name);
+		if (rc != 0)
+			break;
+		/* Fall through. */
 	case job_ipl:
 	case job_segment:
-	case job_dump_fs:
 	case job_menu:
 		/* Create bootmap */
 		stage1b_list = NULL;
-		rc = bootmap_create(job, &program_table, &stage1b_list,
-				    &stage1b_count, &device, &info);
+		rc = bootmap_create(job, &program_table, &scsi_dump_sb_blockptr,
+				    &stage1b_list, &stage1b_count, &device,
+				    &info);
 		if (rc)
 			break;
 		/* Install boot loader */
 		rc = install_bootloader(device, &program_table,
-					stage1b_list, stage1b_count, info, job);
+					&scsi_dump_sb_blockptr, stage1b_list,
+					stage1b_count, info, job);
 		if (stage1b_list != NULL)
 			free(stage1b_list);
 		misc_free_temp_dev(device);
@@ -192,11 +208,6 @@ main(int argc, char* argv[])
 					job->data.ipl_tape.image_addr,
 					job->data.ipl_tape.parm_addr,
 					job->data.ipl_tape.ramdisk_addr);
-		break;
-	case job_dump_partition:
-		/* Retrieve target device information */
-		rc = install_dump(job->data.dump.device, &job->target,
-				  job->data.dump.mem);
 		break;
 	case job_mvdump:
 		rc = install_mvdump(job->data.mvdump.device,

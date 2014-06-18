@@ -1,17 +1,12 @@
 /*
- *
- * xcec-bridge
- *
- * Copyright IBM Corp. 2003, 2006.
- *
- * Authors: Utz Bacher <utz.bacher@de.ibm.com>
- * thanks a lot to Frank Pavlic <pavlic@de.ibm.com>
+ * xcec-bridge - HiperSockets Network Concentrator
  *
  * Parameters:
  *   also_unicast     - uni-, multi-, broadcast is bridged
  *   <no parameters>  - multi-, broadcast is bridged
  *   only broadcast   - only broadcast is bridged
- * 
+ *
+ * Copyright IBM Corp. 2003, 2006
  */
 
 #include <sys/time.h>

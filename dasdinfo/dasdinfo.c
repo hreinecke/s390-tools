@@ -255,7 +255,7 @@ static int dinfo_read_dasd_vlabel (char *device, struct volume_label *vlabel,
 {
 	struct dasd_data data;
 	struct volume_label tmp;
-	unsigned int vlsize = sizeof(struct volume_label);
+	int vlsize = sizeof(struct volume_label);
 	unsigned long vlabel_start;
 	char vollbl[5];
 	int f;
@@ -461,7 +461,7 @@ static int dinfo_get_dev_from_blockdev(char *blockdev, dev_t *dev)
 }
 
 static int
-dinfo_is_busiddir(const char *fpath, const struct stat *sb,
+dinfo_is_busiddir(const char *fpath, const struct stat *UNUSED(sb),
 		  int tflag, struct FTW *ftwbuf)
 {
 	char *tempdir;

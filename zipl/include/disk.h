@@ -93,6 +93,8 @@ struct job_target_data;
 
 int disk_get_info(const char* device, struct job_target_data* target,
 		  struct disk_info** info);
+int disk_is_tape(const char* device);
+int disk_is_scsi(const char* device, struct job_target_data* target);
 int disk_get_info_from_file(const char* filename,
 			    struct job_target_data* target,
 			    struct disk_info** info);
@@ -106,8 +108,8 @@ void disk_blockptr_from_blocknum(disk_blockptr_t* ptr, blocknum_t blocknum,
 				 struct disk_info* info);
 int disk_write_block_aligned(int fd, const void* data, size_t bytecount,
 	  		     disk_blockptr_t* block, struct disk_info* info);
-blocknum_t disk_write_block_buffer(int fd, const void* buffer,
-				   size_t bytecount,
+blocknum_t disk_write_block_buffer(int fd, int fd_is_basedisk,
+				   const void* buffer, size_t bytecount,
 				   disk_blockptr_t** blocklist,
 				   struct disk_info* info);
 void disk_print_devt(dev_t d);

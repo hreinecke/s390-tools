@@ -1,14 +1,9 @@
 #!/usr/bin/perl
-
-###############################################################################
-# Script to list all available LUNs.
 #
-# Copyright IBM Corp. 2008.
+# lsluns - Tool to list all available LUNs
 #
-# Author(s): Martin Petermann <martin@linux.vnet.ibm.com>
-#            Swen Schillig    <swen@vnet.ibm.com>
+# Copyright IBM Corp. 2008
 #
-###############################################################################
 
 use strict;
 use warnings;

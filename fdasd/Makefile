@@ -6,7 +6,7 @@ all: fdasd
 
 fdasd.o: fdasd.h ../include/zt_common.h
 
-fdasd: fdasd.o ../libvtoc/vtoc.o
+fdasd: fdasd.o $(rootdir)/libvtoc/vtoc.o
 
 install: all
 	$(INSTALL) -d -m 755 $(BINDIR) $(MANDIR)/man8

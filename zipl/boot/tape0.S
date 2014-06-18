@@ -11,6 +11,8 @@ IPL_OFF			= 0x4000		# temporary kernel load addr
 COMMAND_LINE_SIZE	= 896			# max command line length
 KERNEL_OFF		= 0x10000		# kernel start code offset
 						# relative to image start
+__LC_IO_NEW_PSW         = 0x1f0			# IO New PSW addr
+
 
 # Parameter address offsets
 
@@ -50,12 +52,11 @@ _start:
 	.long 0x000a0000,0x00000060		# svc new psw
 	.long 0x000a0000,0x00000068		# program check new psw
 	.long 0x000a0000,0x00000070		# machine check new psw
-	.long 0x00080000,0x80000000+.Lioint	# io new psw
 
 
 # IPL parameter area
 
-	.org 0x100
+	.org 0x200
 _parm_addr:
 	.quad PARMFILE_ADDR			# parmfile load address
 _initrd_addr:
@@ -178,6 +179,23 @@ _load_psw:
 
 iplstart:
 	stm   %r0,%r15,.Lvmparamtemp		# store vm params for later use
+	basr    %r13,0
+0:
+	la      %r7,2                           #/* First try code 2: */
+	la      %r6,0                           #/* 64 bit psws are restored */
+	sigp    %r7,%r6,0x12                    #/* Switch to 64 bit */
+	bc      8,.Lswitched_64-0b(%r13)        #/* Accepted ? */
+	la      %r7,1                           #/* Failed - try code 1 */
+	sigp    %r7,%r6,0x12                    #/* Switch to 64 bit */
+.Lswitched_64:
+	sam64                                   #/* Switch to 64 bit addr mode */
+	basr    %r13,0
+1:
+	mvc    __LC_IO_NEW_PSW(16),4f-1b(%r13)    # set i/o new ps
+	b      .Lafterpsw
+4:
+	.long  0x00000001,0x80000000,0x00000000,0x00000000+.Lioint    # io new psw
+.Lafterpsw:
 	l     %r1,0xb8			 	# load rest of loader/TM
 	la    %r2,IPL_BS
 	bas   %r14,.Lloader

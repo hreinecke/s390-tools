@@ -4,7 +4,7 @@
  *
  * This is a user-space copy of the kernel vtoc,h.
  *
- * Copyright IBM Corp. 2002,2012
+ * Copyright IBM Corp. 2002, 2013
  *
  * History of changes (starts March 2002)
  * 2002-03-12 initial
@@ -174,6 +174,16 @@ typedef struct format1_label
 } __attribute__ ((packed)) format1_label_t;
 
 
+typedef struct format3_label
+{
+	char DS3KEYID[4];         /* key identifier                          */
+	extent_t DS3EXTNT[4];     /* first 4 extent descriptions             */
+	u_int8_t DS3FMTID;        /* format identifier                       */
+	extent_t DS3ADEXT[9];     /* last 9 extent description               */
+	cchhb_t  DS3PTRDS;        /* pointer to next format3 DSCB            */
+} __attribute__ ((packed)) format3_label_t;
+
+
 typedef struct format4_label 
 {
 	char  DS4KEYCD[44];       /* key code for VTOC labels: 44 times 0x04 */
@@ -252,7 +262,8 @@ typedef struct format9_label
 	u_int8_t  DS9NUMF9;       /* number of F9 datasets  */
 	u_int8_t  res1[41];       /* reserved  */
 	u_int8_t  DS9FMTID;       /* format identifier  */
-	u_int8_t  res2[95];       /* reserved */
+	u_int8_t  res2[90];       /* reserved */
+	cchhb_t   DS9PTRDS;       /* pointer to next DSCB               */
 } __attribute__ ((packed)) format9_label_t;
 
 char * vtoc_ebcdic_enc (char *source, char *target, int l);
@@ -337,14 +348,12 @@ void vtoc_write_label (
 
 
 void vtoc_init_format1_label (
-        char *volid,
         unsigned int blksize,
         extent_t *part_extent,
         format1_label_t *f1);
 
 void vtoc_init_format4_label (
         format4_label_t *f4lbl,
-	unsigned int usable_partitions,
 	unsigned int compat_cylinders,
 	unsigned int real_cylinders,
 	unsigned int tracks,
@@ -363,7 +372,6 @@ void vtoc_init_format5_label (
 void vtoc_update_format5_label_add (
 	format5_label_t *f5,
 	int verbose,
-	int cyl,
 	int trk,
 	u_int16_t a, 
 	u_int16_t b, 
@@ -372,7 +380,6 @@ void vtoc_update_format5_label_add (
 void vtoc_update_format5_label_del (
 	format5_label_t *f5,
 	int verbose,
-	int cyl,
 	int trk,
 	u_int16_t a, 
 	u_int16_t b, 
@@ -394,7 +401,6 @@ void vtoc_update_format7_label_del (
 	u_int32_t b);
 
 void vtoc_init_format8_label (
-        char *volid,
         unsigned int blksize,
         extent_t *part_extent,
         format1_label_t *f1);

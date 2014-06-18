@@ -9,19 +9,19 @@
 
 #include "ipl_tools.h"
 
-struct shutdown_trigger shutdown_trigger_halt = {
+static struct shutdown_trigger shutdown_trigger_halt = {
 	.name		= "halt",
 	.name_print	= "Halt",
 	.name_sysfs	= "on_halt",
 };
 
-struct shutdown_trigger shutdown_trigger_poff = {
+static struct shutdown_trigger shutdown_trigger_poff = {
 	.name		= "poff",
 	.name_print	= "Power off",
 	.name_sysfs	= "on_poff",
 };
 
-struct shutdown_trigger shutdown_trigger_reboot = {
+static struct shutdown_trigger shutdown_trigger_reboot = {
 	.name		= "reboot",
 	.name_print	= "Reboot",
 	.name_sysfs	= "on_reboot",
@@ -48,23 +48,23 @@ struct shutdown_trigger *shutdown_trigger_vec[] = {
 	NULL,
 };
 
-struct shutdown_action shutdown_action_ipl = {
+static struct shutdown_action shutdown_action_ipl = {
 	.name		= "ipl",
 };
 
-struct shutdown_action shutdown_action_reipl = {
+static struct shutdown_action shutdown_action_reipl = {
 	.name		= "reipl",
 };
 
-struct shutdown_action shutdown_action_dump = {
+static struct shutdown_action shutdown_action_dump = {
 	.name		= "dump",
 };
 
-struct shutdown_action shutdown_action_dump_reipl = {
+static struct shutdown_action shutdown_action_dump_reipl = {
 	.name		= "dump_reipl",
 };
 
-struct shutdown_action shutdown_action_stop = {
+static struct shutdown_action shutdown_action_stop = {
 	.name		= "stop",
 };
 

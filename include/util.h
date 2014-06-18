@@ -10,5 +10,6 @@
 #define UTIL_H
 
 #include "util_list.h"
+#include "util_part.h"
 
 #endif /* UTIL_H */

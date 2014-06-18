@@ -18,6 +18,7 @@
 
 
 int bootmap_create(struct job_data* job, disk_blockptr_t* program_table,
+		   disk_blockptr_t *scsi_dump_sb_blockptr,
 		   disk_blockptr_t** stage2_list, blocknum_t* stage2_count,
 		   char** device, struct disk_info** new_info);
 void bootmap_store_blockptr(void* buffer, disk_blockptr_t* ptr,

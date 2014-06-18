@@ -88,7 +88,7 @@ static int check_directory(char *name, char *dev) {
  * to hold the additional "device".
  * name: block device path in sysfs.
  * busid: buffer in which the busid string will be returned
- * returns 0 for successfull operation and -1 in case of an error.
+ * returns 0 for successful operation and -1 in case of an error.
  */
 static int extract_busid(char *name, char *busid) {
 
@@ -155,7 +155,7 @@ static char *append_if_directory(char *buffer, char *oldend, struct dirent *dir)
  * it's busid
  * dev: <major>:<minor> of the device
  * busid: buffer in which the busid string will be returned
- * returns 0 for successfull operation and -1 in case of an error.
+ * returns 0 for successful operation and -1 in case of an error.
  */
 static int find_busid_in_sysfs(char *dev, char *busid) {
 
@@ -254,7 +254,7 @@ static int find_busid_in_proc(int maja, int mina, char *busid)
  * Works only for block devices.
  * devicenode: path to the device node
  * busid: buffer in which the busid string will be returned
- * returns 0 for successfull operation and -1 in case of an error.
+ * returns 0 for successful operation and -1 in case of an error.
  */
 int u2s_getbusid(char *devicenode, char *busid)
 {

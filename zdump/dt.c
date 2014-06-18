@@ -15,6 +15,7 @@
 static struct dt *dt_vec[] = {
 	&dt_s390mv,
 	&dt_s390sv,
+	&dt_scsi,
 	NULL,
 };
 
@@ -30,7 +31,7 @@ struct attr {
 /*
  * File local static data
  */
-struct {
+static struct {
 	int		version;
 	enum dfi_arch	arch;
 	struct attr	attr;
@@ -47,9 +48,9 @@ void dt_init(void)
 
 	while ((dt = dt_vec[i])) {
 		g.fh = zg_open(g.opts.device, O_RDONLY, ZG_CHECK);
-		if (zg_type(g.fh) != ZG_TYPE_DASD)
-			ERR_EXIT("Please specify DASD device node (e.g. "
-				 "/dev/dasdd)");
+		if (!S_ISBLK(g.fh->sb.st_mode))
+			ERR_EXIT("Please specify DASD or SCSI device node"
+				 "(e.g. /dev/dasdd or /dev/sda )");
 		if (dt->init() == 0) {
 			l.dt = dt;
 			return;
@@ -71,11 +72,14 @@ void dt_info_print(void)
 	STDERR("  Architecture......: %s\n", dfi_arch_str(l.arch));
 	if (l.attr.dasd_type)
 		STDERR("  DASD type.........: %s\n", l.attr.dasd_type);
-	if (l.attr.mem_limit)
-		STDERR("  Dump size limit...: %lld MB\n",
-		       TO_MIB(*l.attr.mem_limit));
-	else
-		STDERR("  Dump size limit...: none\n");
+
+	if (l.attr.mem_limit) {
+		if (*l.attr.mem_limit != U64_MAX)
+			STDERR("  Dump size limit...: %lld MB\n",
+			       TO_MIB(*l.attr.mem_limit));
+		else
+			STDERR("  Dump size limit...: none\n");
+	}
 	if (l.attr.force) {
 		if (*l.attr.force == 0)
 			STDERR("  Force specified...: no\n");

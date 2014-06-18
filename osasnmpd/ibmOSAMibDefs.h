@@ -1,26 +1,9 @@
 /*
- * File...........: ibmOSAMibDefs.h
- * Author(s)......: Thomas Weber <tweber@de.ibm.com>
- * Copyright IBM Corp. 2002,2007
+ * osasnmpd - IBM OSA-Express network card SNMP subagent
  *
- * History of changes:
- * none 
- *  
- * Defines constants and data structures used by the OSA-E subagent. 
+ * Defines constants and data structures used by the OSA-E subagent.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Copyright IBM Corp. 2002, 2007
  */
 
 #ifdef IN_UCD_SNMP_SOURCE
@@ -74,7 +57,7 @@
 #define IFNAME_MAXLEN 16    /* max length for linux interface names */
 #define SUFFIX_MAXLEN 13    /* max length of suffix length for ucd-snmp */
 #define MIB_AREA_LEN  25000 /* default size for register MIB data */
-#define MAX_GET_DATA  4094  /* maximum GET reponse data length */
+#define MAX_GET_DATA  4094  /* maximum GET response data length */
 #define GET_AREA_LEN  MAX_GET_DATA + 512  /* size for GET command area length */
 #define TIME_BUF_SIZE 128   /* buffer size for date and time string */
 #define MAX_OID_STR_LEN   MAX_OID_LEN * 5 /* max OID string size */

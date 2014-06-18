@@ -193,7 +193,7 @@ static void tape390_crypt_parse_opts(struct tape390_crypt *info, int argc,
 		{ "help",        no_argument,       NULL, 'h'},
 		{ "delimiter",   required_argument, NULL, 'd'},
 		{ "force",       no_argument,       NULL, 'f'},
-		{ 0,             0,                 0,    0  }
+		{ NULL,          0,                 NULL,  0 }
 	};
 	/* Command line option abbreviations */
 	static const char crypt_option_string[] = "ve:qk:hd:f";

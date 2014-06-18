@@ -1,27 +1,10 @@
 /*
- * File...........: ibmOSAMibUtil.c
- * Author(s)......: Thomas Weber <tweber@de.ibm.com>
- * Copyright IBM Corp. 2002,2007
+ * osasnmpd - IBM OSA-Express network card SNMP subagent
  *
- * History of changes:
- * 07/29 added '-x agentx_socket' parm to usage message
- *  
- * Collection of utility functions used by the MIB implementation 
- * module. 
+ * Collection of utility functions used by the MIB implementation
+ * module.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Copyright IBM Corp. 2002, 2007
  */
 
 #include <sys/types.h>
@@ -1492,7 +1475,7 @@ void update_mib_info ()
  *  INOUT IF_LIST** ifList: List of network interfaces on this system  
  *  returns: int if_Number - number of network interfaces on this system 
  *                          system  (>=0)
- *                          -1 -an error occured , no valid info avail             
+ *                          -1 -an error occurred , no valid info avail
  *********************************************************************/
 int query_IF_MIB ( IF_LIST** ifList )
 {
@@ -1711,7 +1694,7 @@ int query_IF_MIB ( IF_LIST** ifList )
  *  IN    int       if_Number: number of network interfaces
  *  returns: int num - number of OSA Express devices found on this 
  *                          system  (>=0)
- *                          -1 -an error occured , no valid info avail             
+ *                          -1 -an error occurred , no valid info avail
  *********************************************************************/
 int query_OSA_EXP ( IF_LIST** ifList, int if_Number )
 {

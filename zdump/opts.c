@@ -209,7 +209,7 @@ static void parse_pos_args(char *argv[], int argc)
 		if (pos_args == 0)
 			ERR_EXIT("No device or dump specified");
 		if (pos_args > 1 && !g.opts.debug_specified)
-			ERR_EXIT("Too many positional paramters specified");
+			ERR_EXIT("Too many positional parameters specified");
 		device_set(argv[optind]);
 		break;
 	case ZG_ACTION_MOUNT:
@@ -218,7 +218,7 @@ static void parse_pos_args(char *argv[], int argc)
 		if (pos_args == 1)
 			ERR_EXIT("No mount point specified");
 		if (pos_args > 2 && !g.opts.debug_specified)
-			ERR_EXIT("Too many positional paramters specified");
+			ERR_EXIT("Too many positional parameters specified");
 		device_set(argv[optind]);
 		mount_point_set(argv[optind + 1]);
 		if (g.opts.debug_specified && pos_args > 2)
@@ -248,7 +248,7 @@ void opts_parse(int argc, char *argv[])
 		{"fmt",     required_argument, NULL, 'f'},
 		{"select",  required_argument, NULL, 's'},
 		{"debug",   no_argument,       NULL, 'X'},
-		{0,         0,                 0,     0 }
+		{NULL,      0,                 NULL,  0 }
 	};
 	static const char optstr[] = "hvidmus:f:X";
 

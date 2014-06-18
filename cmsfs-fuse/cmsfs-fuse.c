@@ -41,8 +41,8 @@
 #include "ebcdic.h"
 
 struct cmsfs cmsfs;
-struct util_list open_file_list;
-struct util_list text_type_list;
+static struct util_list open_file_list;
+static struct util_list text_type_list;
 FILE *logfile;
 
 #define FSNAME_MAX_LEN	200
@@ -175,7 +175,7 @@ struct io_operations {
 	int (*write) (const void *buf, size_t size, off_t addr);
 };
 
-struct io_operations io_ops;
+static struct io_operations io_ops;
 
 struct write_state {
 	int		block_state;
@@ -230,7 +230,7 @@ struct file {
 	char		*wcache;
 	/* used bytes in write cache */
 	int		wcache_used;
-	/* commited written bytes to FUSE */
+	/* committed written bytes to FUSE */
 	int		wcache_commited;
 	/* dirty flag for file meta data */
 	int		ptr_dirty;
@@ -258,9 +258,9 @@ struct xattr {
  * Record lrecl: 0-65535, 5 bytes
  * Record mode: [A-Z][0-6], 2 bytes
  */
-struct xattr xattr_format = { .name = "user.record_format", .size = 1 };
-struct xattr xattr_lrecl = { .name = "user.record_lrecl", .size = 5 };
-struct xattr xattr_mode = { .name = "user.file_mode", .size = 2 };
+static struct xattr xattr_format = { .name = "user.record_format", .size = 1 };
+static struct xattr xattr_lrecl = { .name = "user.record_lrecl", .size = 5 };
+static struct xattr xattr_mode = { .name = "user.file_mode", .size = 2 };
 
 #define SHOW_UNLINKED		0
 #define HIDE_UNLINKED		1
@@ -313,7 +313,7 @@ static void setup_iconv(iconv_t *conv, const char *from, const char *to)
 
 static inline struct file *get_fobj(struct fuse_file_info *fi)
 {
-	return (struct file *) fi->fh;
+	return (struct file *)(unsigned long) fi->fh;
 }
 
 static int access_ok(size_t size, off_t addr)
@@ -329,13 +329,13 @@ static int access_ok(size_t size, off_t addr)
 	return 1;
 }
 
-int read_memory(void *buf, size_t size, off_t addr)
+static int read_memory(void *buf, size_t size, off_t addr)
 {
 	memcpy(buf, cmsfs.map + addr, size);
 	return 0;
 }
 
-int read_syscall(void *buf, size_t size, off_t addr)
+static int read_syscall(void *buf, size_t size, off_t addr)
 {
 	int rc;
 
@@ -353,7 +353,7 @@ int _read(void *buf, size_t size, off_t addr)
 	return io_ops.read(buf, size, addr);
 }
 
-int write_syscall(const void *buf, size_t size, off_t addr)
+static int write_syscall(const void *buf, size_t size, off_t addr)
 {
 	char *zbuf;
 	int rc;
@@ -373,7 +373,7 @@ int write_syscall(const void *buf, size_t size, off_t addr)
 	return rc;
 }
 
-int write_memory(const void *buf, size_t size, off_t addr)
+static int write_memory(const void *buf, size_t size, off_t addr)
 {
 	if (buf == NULL)
 		memset(cmsfs.map + addr, 0, size);
@@ -395,7 +395,7 @@ int _zero(off_t addr, size_t size)
 	return _write(NULL, size, addr);
 }
 
-off_t get_filled_block(void)
+static off_t get_filled_block(void)
 {
 	off_t addr = get_free_block();
 
@@ -1820,7 +1820,7 @@ static int cmsfs_open(const char *path, struct fuse_file_info *fi)
 	 * O_DIRECTORY: FUSE captures open on / so not needed.
 	 * O_NOATIME: ignored because there is no atime in EDF.
 	 * O_NOFOLLOW: can be ignored since EDF has no links.
-	 * O_SYNC: ignored since IO is alwasy sync.
+	 * O_SYNC: ignored since IO is always sync.
 	 * O_TRUNC, O_CREAT, O_EXCL: avoided by FUSE.
 	 */
 	fst_addr = lookup_file(path + 1, &fst, SHOW_UNLINKED);
@@ -1859,7 +1859,7 @@ static int cmsfs_open(const char *path, struct fuse_file_info *fi)
 	if (fi->flags & O_RDWR || fi->flags & O_WRONLY)
 		f->write_count++;
 
-	fi->fh = (u64) f;
+	fi->fh = (uint64_t)(unsigned long) f;
 	return 0;
 }
 
@@ -2688,7 +2688,7 @@ static int cmsfs_utimens(const char *path, const struct timespec ts[2])
 /*
  * Get the address of the last directory entry.
  */
-off_t find_last_fdir_entry(off_t addr, int level)
+static off_t find_last_fdir_entry(off_t addr, int level)
 {
 	struct fst_entry fst;
 	int left, rc;
@@ -4180,7 +4180,7 @@ static int cmsfs_write(const char *path, const char *buf, size_t size,
 	if (!f->linefeed)
 		return do_write(f, buf, size, offset);
 
-	/* remove already comitted bytes */
+	/* remove already committed bytes */
 	offset -= f->wcache_commited;
 
 	/* write offset must be at the end of the file */

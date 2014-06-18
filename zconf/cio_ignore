@@ -1,9 +1,8 @@
 #!/bin/bash
 #
-# cio_ignore - tool to query and modify the cio blacklist
+# cio_ignore - Tool to query and modify the cio blacklist
 #
 # Copyright IBM Corp. 2009
-# Author(s): Peter Oberparleiter <peter.oberparleiter@de.ibm.com>
 #
 
 VERSION="%S390_TOOLS_VERSION%"

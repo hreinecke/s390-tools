@@ -1,10 +1,9 @@
 #!/usr/bin/perl
-###############################################################################
-# chmem - script to show memory hotplug status.
+#
+# chmem - Tool to change memory hotplug status
 #
 # Copyright IBM Corp. 2010, 2011
-# Author(s): Gerald Schaefer <gerald.schaefer@de.ibm.com>
-###############################################################################
+#
 
 use strict;
 use warnings;

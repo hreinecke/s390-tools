@@ -84,7 +84,7 @@ public:
 	virtual bool is_eligible(const struct message_preview *msg) const;
 
 	/**
-	 * NOTE: Message must be in native endianess! */
+	 * NOTE: Message must be in native endianness! */
 	virtual bool is_eligible(const struct message *msg) const;
 
 	__u64	get_begin_time() const;

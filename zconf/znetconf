@@ -1,15 +1,14 @@
 #!/bin/bash
 #
-# znetconf - list and configure network devices
+# znetconf - Tool to list and configure network devices
 #
 # Tool for the automatic and semi-automatic configuration of network devices
 # from ccw devices, including network device option handling and network
 # device removal.
 #
 # Copyright IBM Corp. 2009
-# Author(s): Einar Lueck <elelueck@de.ibm.com>
-#            Steffen Maier <maier@de.ibm.com>
 #
+
 # 9 Could not group devices
 readonly RC_COULD_NOT_GROUP_DEVICES=9
 # 10 Could not set device online
@@ -746,7 +745,7 @@ function list_configured()
 		supress_header=$1
 	fi
 
-	local LIST_FORMAT_STRING="%-26.26s %-7.7s %-14.14s %5.5s %-4.4s %-11.11s %-7.7s\n"
+	local LIST_FORMAT_STRING="%-26.26s %-7.7s %-14.14s %5.5s %-4.4s %-16.16s %-7.7s\n"
 	if [ $supress_header -eq 0 ]
 	then
 		printf "$LIST_FORMAT_STRING" "Device IDs" "Type" \

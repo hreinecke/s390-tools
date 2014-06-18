@@ -5,7 +5,7 @@ COMMON_INCLUDED = true
 # The variable "DISTRELEASE" should be overwritten in rpm spec files with:
 # "make DISTRELEASE=%{release}" and "make install DISTRELEASE=%{release}"
 VERSION            = 1
-RELEASE            = 23
+RELEASE            = 24
 PATCHLEVEL         = 1
 DISTRELEASE        = build-$(shell date +%Y%m%d)
 S390_TOOLS_RELEASE = $(VERSION).$(RELEASE).$(PATCHLEVEL)-$(DISTRELEASE)
@@ -31,6 +31,8 @@ STRIP           = $(call echocmd,"  STRIP   ",/$@)$(CROSS_COMPILE)strip
 OBJCOPY         = $(call echocmd,"  OBJCOPY ",/$@)$(CROSS_COMPILE)objcopy
 OBJDUMP         = $(call echocmd,"  OBJDUMP ",/$@)$(CROSS_COMPILE)objdump
 RUNTEST         = $(call echocmd,"  RUNTEST ",/$@)$(S390_TEST_LIB_PATH)/s390_runtest
+CHECK           = sparse
+CHECKTOOL       = $(call echocmd,"  CHECK   ",/$@)$(CHECK)
 
 INSTALL         = install
 CP              = cp
@@ -41,8 +43,8 @@ ifneq ("${V}","1")
 else
 	echocmd=
 endif
-ifneq ("${W}","1")
-	WARNFLAGS = -W -Wall -Wno-unused-parameter
+ifeq ("${W}","1")
+	WARNFLAGS = -W -Wall -Wextra
 else
 	WARNFLAGS = -W -Wall
 endif
@@ -55,17 +57,17 @@ LIBDIR          = $(INSTROOT)/lib
 SYSCONFDIR      = $(INSTROOT)/etc
 MANDIR          = $(INSTROOT)/usr/share/man
 TOOLS_LIBDIR    = $(INSTROOT)/lib/s390-tools
+ZFCPDUMP_DIR    = $(INSTROOT)/lib/s390-tools/zfcpdump
 INSTDIRS        = $(USRSBINDIR) $(USRBINDIR) $(BINDIR) $(LIBDIR) $(MANDIR) \
-			$(SYSCONFDIR) $(TOOLS_LIBDIR)
+			$(SYSCONFDIR) $(TOOLS_LIBDIR) $(ZFCPDUMP_DIR)
 OWNER           = $(shell id -un)
 GROUP		= $(shell id -gn)
 export INSTROOT BINDIR LIBDIR MANDIR OWNER GROUP
 
 # Special defines for zfcpdump
-ZFCPDUMP_DIR    = /usr/local/share/zfcpdump
-ZFCPDUMP_IMAGE  = zfcpdump.image
-ZFCPDUMP_RD     = zfcpdump.rd
-export ZFCPDUMP_DIR ZFCPDUMP_IMAGE ZFCPDUMP_RD
+ZFCPDUMP_PART_IMAGE	= zfcpdump_part.image
+ZFCPDUMP_PART_RD	= zfcpdump_part.rd
+export ZFCPDUMP_DIR ZFCPDUMP_PART_IMAGE ZFCPDUMP_PART_RD
 
 CFLAGS		= $(WARNFLAGS) -O3 -DS390_TOOLS_RELEASE=$(S390_TOOLS_RELEASE) \
 			-DS390_TOOLS_LIBDIR=$(TOOLS_LIBDIR) \
@@ -89,6 +91,9 @@ export AS LD CC CPP AR NM STRIP OBJCOPY OBJDUMP INSTALL CFLAGS CXXFLAGS LDFLAGS
 # Overwrite implicite makefile rules for having nice compile output
 %.o: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+ifeq ("${C}","1")
+	$(CHECKTOOL) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+endif
 
 %.o: %.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
@@ -97,6 +102,24 @@ export AS LD CC CPP AR NM STRIP OBJCOPY OBJDUMP INSTALL CFLAGS CXXFLAGS LDFLAGS
 	$(LINK) $(LDFLAGS) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 all:
+
+# rules for shared files
+# needed to ensure that these files are build with their own build
+# flags even if they are build from external directories
+$(rootdir)/libutil/util_part.o:
+	make -C $(rootdir)/libutil/ util_part.o
+
+$(rootdir)/libutil/util_list.o:
+	make -C $(rootdir)/libutil/ util_list.o
+
+$(rootdir)/libutil/util_proc.o:
+	make -C $(rootdir)/libutil/ util_proc.o
+
+$(rootdir)/libvtoc/vtoc.o:
+	make -C $(rootdir)/libvtoc/ vtoc.o
+
+$(rootdir)/zipl/boot/data.o:
+	make -C $(rootdir)/zipl/boot/ data.o
 
 install_dirs:
 	for dir in $(INSTDIRS); do \

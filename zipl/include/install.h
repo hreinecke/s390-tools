@@ -18,6 +18,7 @@
 
 
 int install_bootloader(const char* device, disk_blockptr_t* program_table,
+		       disk_blockptr_t* scsi_dump_sb_blockptr,
 		       disk_blockptr_t* stage2_data, blocknum_t stage2_count,
 		       struct disk_info* info, struct job_data* job);
 int install_tapeloader(const char* device, const char* image,
@@ -36,5 +37,6 @@ int install_eckd_stage1b(int fd, disk_blockptr_t **stage1b_list,
 			 blocknum_t *stage1b_count,
 			 disk_blockptr_t *stage2_list,
 			 blocknum_t stage2_count, struct disk_info *info);
+int rewind_tape(int fd);
 
 #endif /* INSTALL_H */

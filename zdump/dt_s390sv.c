@@ -55,7 +55,7 @@ static void dumper_read_fba_gen(int size, void *buffer)
 /*
  * Read dump tool on FBA disk and check its magic number
  */
-int dumper_check_fba(void)
+static int dumper_check_fba(void)
 {
 	if (strncmp(l.dumper.magic, "ZDFBA31", 7) == 0) {
 		l.dumper_arch = DFI_ARCH_32;
@@ -82,6 +82,9 @@ static int dumper_read_fba(void)
 	if (dumper_check_fba() == 0)
 		return 0;
 	dumper_read_fba_gen(DF_S390_DUMPER_SIZE_V2, &l.dumper);
+	if (dumper_check_fba() == 0)
+		return 0;
+	dumper_read_fba_gen(DF_S390_DUMPER_SIZE_V3, &l.dumper);
 	if (dumper_check_fba() == 0)
 		return 0;
 	return -ENODEV;
@@ -115,8 +118,7 @@ static int dt_s390sv_init(void)
 		return -ENODEV;
 	dt_arch_set(l.dumper_arch);
 	dt_version_set(df_s390_dumper_version(l.dumper));
-	if (df_s390_dumper_mem(l.dumper) != U64_MAX)
-		dt_attr_mem_limit_set(df_s390_dumper_mem(l.dumper));
+	dt_attr_mem_limit_set(df_s390_dumper_mem(&l.dumper));
 	return 0;
 }
 

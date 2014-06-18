@@ -1,9 +1,6 @@
 #!/usr/bin/perl -w
 #
-# ip_watcher.pl
-#
-# Copyright IBM Corp. 2003, 2006.
-# Author(s): Utz Bacher <utz.bacher@de.ibm.com>
+# ip_watcher.pl - HiperSockets Network Concentrator
 #
 # looks for addresses in the HiperSockets and sets them as Proxy ARP on the
 # OSAs. Also adds routing entries towards the HiperSockets interfaces for
@@ -30,6 +27,9 @@
 #   this is another mixture of the above -- ipv4 forwarding of unicast
 #   packets is done by the kernel, multicast is handled by mrouted or some
 #   multicast router, and broadcast traffic is bridged by xcec-bridge.
+#
+# Copyright IBM Corp. 2003, 2006
+#
 
 $OPERATING_MODE="mc_bridging";
 
@@ -119,7 +119,7 @@ sub get_proxy_arp_interface
 			}
 		}
 	} else {
-		die "could not get availabe qeth interfaces\n";
+		die "could not get available qeth interfaces\n";
 	}
 
 	if ($PA_INTERFACE eq "") {
@@ -158,7 +158,7 @@ sub update_interface_list
 			}
 		}
 	} else {
-		print STDERR "could not get availabe qeth interfaces\n";
+		print STDERR "could not get available qeth interfaces\n";
 		return ();
 	}
 	return @if_list

@@ -233,7 +233,7 @@ description above).
 Only disk IPL sections (see option
 .BR image ) 
 and file system dump sections (option
-.BR dumptofs )
+.BR dumpto )
 may be included in menus. 
 
 Note that position number 0 is reserved and will automatically be assigned to
@@ -348,29 +348,9 @@ will be incomplete.
 .PP
 
 .B dumptofs
-=
-.IR dump\-partition [, size ]
-(configuration only)
 .IP
-.B Configuration section:
 .br
-Specify a SCSI partition which should be used for system dump.
-Every time this configuration is booted, the current system status is written
-as a numbered file to the file system located on the dump partition. This
-option has to be specified together with the
-.B 'target'
-option. If necessary, the
-.BR 'parmfile' " or "
-.B 'parameters'
-option may be used to pass parameters to the system dump tool.
-
-An optional decimal SIZE parameter may be specified to determine the
-maximum dump size in bytes. SIZE can be suffixed by either of the letters
-K, M or G to signify that the decimal number be interpreted as kilobytes,
-megabytes or gigabytes respectively. SIZE will be rounded up to the next
-megabyte boundary. Note that when you specify a SIZE lower than the actual
-memory size used by linux (see kernel parameter mem=), the resulting dump
-will be incomplete.
+This option has been removed, use dumpto instead.
 .PP
 
 .B mvdump
@@ -422,8 +402,7 @@ To change the kernel parameters, use
 .BR 'parameters' .
 
 This option cannot be used together with either
-.BR 'dump' ,
-.BR 'dumptofs' " or"
+.BR 'dump' , " or"
 .BR 'segment' .
 .PP
 
@@ -534,8 +513,7 @@ Specify a IBM 3480/3490/3590 tape device on which to install a boot record.
 
 This option cannot be used together with
 .BR 'target' ", "
-.BR 'dump' ", "
-.BR 'dumptofs' " or "
+.BR 'dump' ", " " or "
 .BR 'segment' .
 .PP
 

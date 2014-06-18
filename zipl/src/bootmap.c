@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "util_part.h"
 #include "boot.h"
 #include "disk.h"
 #include "error.h"
@@ -296,7 +297,7 @@ add_component_file(int fd, const char* filename, address_t load_address,
 			return -1;
 		}
 		/* Write buffer */
-		count = disk_write_block_buffer(fd, buffer + offset,
+		count = disk_write_block_buffer(fd, 0, buffer + offset,
 					size - offset, &list, info);
 		free(buffer);
 		if (count == 0) {
@@ -365,7 +366,7 @@ add_component_buffer(int fd, void* buffer, size_t size, address_t load_address,
 	int rc;
 
 	/* Write buffer */
-	count = disk_write_block_buffer(fd, buffer, size, &list, info);
+	count = disk_write_block_buffer(fd, 0, buffer, size, &list, info);
 	if (count == 0) {
 		error_text("Could not write to bootmap file");
 		return -1;
@@ -594,18 +595,17 @@ if (rc) {
 #define DUMP_PARAM_MAX_LEN	896
 
 static char *
-create_dump_fs_parmline(const char* parmline, const char* root_dev,
-			int part_num, uint64_t mem, int max_cpus)
+create_dump_parmline(const char* parmline, const char* root_dev,
+		     uint64_t mem, int max_cpus)
 {
 	char* result;
 
 	result = misc_malloc(DUMP_PARAM_MAX_LEN);
 	if (!result)
 		return NULL;
-	snprintf(result, DUMP_PARAM_MAX_LEN, "%s%sroot=%s dump_part=%d "
-		 "dump_mem=%lld possible_cpus=%d cgroup_disable=memory ",
-		 parmline ? parmline : "",
-		 parmline ? " " : "", root_dev, part_num,
+	snprintf(result, DUMP_PARAM_MAX_LEN, "%s%sroot=%s dump_mem=%lld "
+		 "possible_cpus=%d cgroup_disable=memory ",
+		 parmline ? parmline : "", parmline ? " " : "", root_dev,
 		 (unsigned long long) mem, max_cpus);
 	result[DUMP_PARAM_MAX_LEN - 1] = 0;
 	return result;
@@ -613,9 +613,9 @@ create_dump_fs_parmline(const char* parmline, const char* root_dev,
 
 
 static int
-get_dump_fs_parmline(char* partition, char* parameters, uint64_t mem,
-		     struct disk_info* target_info,
-		     struct job_target_data* target, char** result)
+get_dump_parmline(char *partition, char *parameters,
+		  struct disk_info *target_info,
+		  struct job_target_data *target, char **result)
 {
 	char* buffer;
 	struct disk_info* info;
@@ -640,8 +640,8 @@ get_dump_fs_parmline(char* partition, char* parameters, uint64_t mem,
 		disk_free_info(info);
 		return -1;
 	}
-	buffer = create_dump_fs_parmline(parameters, "/dev/ram0", info->partnum,
-					 mem, 1);
+	buffer = create_dump_parmline(parameters, "/dev/ram0",
+				      info->partnum, 1);
 	disk_free_info(info);
 	if (buffer == NULL)
 		return -1;
@@ -651,7 +651,7 @@ get_dump_fs_parmline(char* partition, char* parameters, uint64_t mem,
 
 
 static int
-add_dump_fs_program(int fd, struct job_dump_fs_data* dump_fs,
+add_dump_program(int fd, struct job_dump_data* dump,
 		    disk_blockptr_t* program, int verbose,
 		    component_header_type type,
 		    struct disk_info* info, struct job_target_data* target)
@@ -660,17 +660,18 @@ add_dump_fs_program(int fd, struct job_dump_fs_data* dump_fs,
 	int rc;
 
 	/* Convert fs dump job to IPL job */
-	ipl.image = dump_fs->image;
-	ipl.image_addr = dump_fs->image_addr;
-	ipl.ramdisk = dump_fs->ramdisk;
-	ipl.ramdisk_addr = dump_fs->ramdisk_addr;
+	memset(&ipl, 0, sizeof(ipl));
+	ipl.image = dump->image;
+	ipl.image_addr = dump->image_addr;
+	ipl.ramdisk = dump->ramdisk;
+	ipl.ramdisk_addr = dump->ramdisk_addr;
 
 	/* Get file system dump parmline */
-	rc = get_dump_fs_parmline(dump_fs->partition, dump_fs->parmline,
-				  dump_fs->mem, info, target, &ipl.parmline);
+	rc = get_dump_parmline(dump->device, dump->parmline,
+			       info, target, &ipl.parmline);
 	if (rc)
 		return rc;
-	ipl.parm_addr = dump_fs->parm_addr;
+	ipl.parm_addr = dump->parm_addr;
 	return add_ipl_program(fd, &ipl, program, verbose, 1,
 			       type, info, target);
 }
@@ -722,13 +723,14 @@ build_program_table(int fd, struct job_data* job, disk_blockptr_t* pointer,
 					 job->add_files, component_header_ipl,
 					 info, &job->target);
 		break;
-	case job_dump_fs:
+	case job_dump_partition:
+		/* Only useful for a partition dump that uses a dump kernel*/
 		if (job->command_line)
 			printf("Adding fs-dump section\n");
 		else
 			printf("Adding fs-dump section '%s' (default)\n",
 			       job->name);
-		rc = add_dump_fs_program(fd, &job->data.dump_fs, &table[0],
+		rc = add_dump_program(fd, &job->data.dump, &table[0],
 					 verbose || job->command_line,
 					 component_header_dump,
 					 info, &job->target);
@@ -761,20 +763,6 @@ build_program_table(int fd, struct job_data* job, disk_blockptr_t* pointer,
 					job->add_files,	component_header,
 					info, &job->target);
 				break;
-			case job_dump_fs:
-				printf("Adding #%d: fs-dump section '%s'%s\n",
-				       job->data.menu.entry[i].pos,
-				       job->data.menu.entry[i].name,
-				       (job->data.menu.entry[i].pos ==
-				        job->data.menu.default_pos) ?
-						" (default)": "");
-				rc = add_dump_fs_program(fd,
-					&job->data.menu.entry[i].data.dump_fs,
-					&table[job->data.menu.entry[i].pos],
-					verbose || job->command_line,
-					component_header_dump,
-					info, &job->target);
-				break;
 			case job_print_usage:
 			case job_print_version:
 			case job_segment:
@@ -796,7 +784,6 @@ build_program_table(int fd, struct job_data* job, disk_blockptr_t* pointer,
 		break;
 	case job_print_usage:
 	case job_print_version:
-	case job_dump_partition:
 	default:
 		/* Should not happen */
 		rc = -1;
@@ -832,34 +819,53 @@ write_empty_block(int fd, disk_blockptr_t* block, struct disk_info* info)
 
 int
 bootmap_create(struct job_data *job, disk_blockptr_t *program_table,
+	       disk_blockptr_t *scsi_dump_sb_blockptr,
 	       disk_blockptr_t **stage1b_list, blocknum_t *stage1b_count,
 	       char **new_device, struct disk_info **new_info)
 {
+	struct scsi_dump_sb scsi_sb;
 	char *device, *filename, *mapname;
 	disk_blockptr_t *stage2_list;
 	blocknum_t stage2_count;
 	struct disk_info *info;
 	size_t stage2_size;
 	void *stage2_data;
-	int fd;
+	int fd, rc, part_ext;
 
 	/* Get full path of bootmap file */
-	filename = misc_make_path(job->target.bootmap_dir,
-			BOOTMAP_TEMPLATE_FILENAME);
-	if (filename == NULL)
-		return -1;
-	/* Create temporary bootmap file */
-	fd = mkstemp(filename);
-	if (fd == -1) {
-		error_reason(strerror(errno));
-		error_text("Could not create file '%s':", filename);
-		goto out_free_filename;
+	if (job->id == job_dump_partition && !dry_run) {
+		filename = misc_strdup(job->data.dump.device);
+		if (filename == NULL)
+			return -1;
+		fd = misc_open_exclusive(filename);
+		if (fd == -1) {
+			error_text("Could not open file '%s'", filename);
+			goto out_free_filename;
+		}
+
+	} else {
+		filename = misc_make_path(job->target.bootmap_dir,
+					  BOOTMAP_TEMPLATE_FILENAME);
+		if (filename == NULL)
+			return -1;
+		/* Create temporary bootmap file */
+		fd = mkstemp(filename);
+		if (fd == -1) {
+			error_reason(strerror(errno));
+			error_text("Could not create file '%s':", filename);
+			goto out_free_filename;
+		}
 	}
 	/* Retrieve target device information. Note that we have to
 	 * call disk_get_info_from_file() to also get the file system
 	 * block size. */
-	if (disk_get_info_from_file(filename, &job->target, &info))
-		goto out_close_fd;
+	if (job->id == job_dump_partition) {
+		if (disk_get_info(filename, &job->target, &info))
+			goto out_close_fd;
+	} else {
+		if (disk_get_info_from_file(filename, &job->target, &info))
+			goto out_close_fd;
+	}
 	/* Check for supported disk and driver types */
 	if ((info->source == source_auto) && (info->type == disk_type_diag)) {
 		error_reason("Unsupported disk type (%s)",
@@ -877,8 +883,62 @@ bootmap_create(struct job_data *job, disk_blockptr_t *program_table,
 		if (check_menu_positions(&job->data.menu, job->name, info))
 			goto out_misc_free_temp_dev;
 	}
-	printf("Building bootmap in '%s'%s\n", job->target.bootmap_dir,
-	       job->add_files ? " (files will be added to bootmap file)" : "");
+	if (job->id == job_dump_partition) {
+		rc = util_part_search(device, info->geo.start, info->phy_blocks,
+				      info->phy_block_size, &part_ext);
+		if (rc <= 0 || part_ext) {
+			if (rc == 0)
+				error_reason("No partition");
+			else if (rc < 0)
+				error_reason("Could not read partition table");
+			else if (part_ext)
+				error_reason("Extended partitions not allowed");
+			error_text("Invalid dump device");
+			goto out_misc_free_temp_dev;
+		}
+		printf("Building bootmap directly on partition '%s'%s\n",
+		       filename,
+		       job->add_files ? " (files will be added to partition)"
+		       : "");
+	} else {
+		printf("Building bootmap in '%s'%s\n", job->target.bootmap_dir,
+		       job->add_files ? " (files will be added to bootmap file)"
+		       : "");
+	}
+	/* For partition dump set raw partition offset
+	   to expected size before end of disk */
+	if (job->id == job_dump_partition) {
+		struct stat st;
+		ulong size;
+		ulong unused_size;
+
+		size = DIV_ROUND_UP(get_stage3_size(), info->phy_block_size);
+		/* Ramdisk */
+		if (job->data.dump.ramdisk != NULL) {
+			if (stat(job->data.dump.ramdisk, &st))
+				goto out_misc_free_temp_dev;
+			size += DIV_ROUND_UP(st.st_size, info->phy_block_size);
+			size += 1; /* For ramdisk section entry */
+		}
+		/* Kernel */
+		if (stat(job->data.dump.image, &st))
+			goto out_misc_free_temp_dev;
+		size += DIV_ROUND_UP(st.st_size - 0x10000,
+				     info->phy_block_size);
+		/* Parmfile */
+		size += DIV_ROUND_UP(DUMP_PARAM_MAX_LEN, info->phy_block_size);
+		size += 8;  /* 1x table + 1x script + 3x section + 1x empty
+			       1x header + 1x scsi dump super block */
+		if (size > info->phy_blocks) {
+			error_text("Partition too small for dump tool");
+			goto out_misc_free_temp_dev;
+		}
+		unused_size = (info->phy_blocks - size) * info->phy_block_size;
+		if (lseek(fd, unused_size, SEEK_SET) < 0)
+			goto out_misc_free_temp_dev;
+		scsi_sb.dump_size = unused_size;
+	}
+
 	/* Write bootmap header */
 	if (misc_write(fd, header_text, sizeof(header_text))) {
 		error_text("Could not write to file '%s'", filename);
@@ -892,12 +952,28 @@ bootmap_create(struct job_data *job, disk_blockptr_t *program_table,
 	/* Build program table */
 	if (build_program_table(fd, job, program_table, info))
 		goto out_misc_free_temp_dev;
+	if (job->id == job_dump_partition) {
+		scsi_sb.magic = SCSI_DUMP_SB_MAGIC;
+		scsi_sb.version = 1;
+		scsi_sb.part_start = info->geo.start * info->phy_block_size;
+		scsi_sb.part_size = info->phy_blocks * info->phy_block_size;
+		scsi_sb.dump_offset = 0;
+		scsi_sb.csum_offset = 0;
+		scsi_sb.csum_size = SCSI_DUMP_SB_CSUM_SIZE;
+		/* Set seed because otherwise csum over zero block is 0 */
+		scsi_sb.csum = SCSI_DUMP_SB_SEED;
+		disk_write_block_aligned(fd, &scsi_sb,
+					 sizeof(scsi_sb),
+					 scsi_dump_sb_blockptr, info);
+	} else
+		scsi_dump_sb_blockptr->linear.block = 0;
+
 	/* Add stage 2 loader to bootmap if necessary */
 	switch (info->type) {
 	case disk_type_fba:
 		if (boot_get_fba_stage2(&stage2_data, &stage2_size, job))
 			goto out_misc_free_temp_dev;
-		stage2_count = disk_write_block_buffer(fd, stage2_data,
+		stage2_count = disk_write_block_buffer(fd, 0, stage2_data,
 						stage2_size, &stage2_list,
 						info);
 		free(stage2_data);
@@ -914,7 +990,7 @@ bootmap_create(struct job_data *job, disk_blockptr_t *program_table,
 	case disk_type_eckd_cdl:
 		if (boot_get_eckd_stage2(&stage2_data, &stage2_size, job))
 			goto out_misc_free_temp_dev;
-		stage2_count = disk_write_block_buffer(fd, stage2_data,
+		stage2_count = disk_write_block_buffer(fd, 0, stage2_data,
 						stage2_size, &stage2_list,
 						info);
 		free(stage2_data);
@@ -937,7 +1013,7 @@ bootmap_create(struct job_data *job, disk_blockptr_t *program_table,
 		if (remove(filename) == -1)
 			fprintf(stderr, "Warning: could not remove temporary "
 				"file %s!\n", filename);
-	} else {
+	} else if (job->id != job_dump_partition) {
 		/* Rename to final bootmap name */
 		mapname = misc_make_path(job->target.bootmap_dir,
 				BOOTMAP_FILENAME);

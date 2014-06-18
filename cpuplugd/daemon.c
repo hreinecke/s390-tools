@@ -102,7 +102,7 @@ void clean_up()
 /*
  * End the deamon
  */
-void kill_daemon(int a)
+void kill_daemon(int UNUSED(a))
 {
 	cpuplugd_info("shutting down\n");
 	remove(pid_file);
@@ -116,7 +116,7 @@ void kill_daemon(int a)
 /*
  * Reload the daemon (for lsb compliance)
  */
-void reload_handler(int a)
+void reload_handler(int UNUSED(a))
 {
 	reload_pending = 1;
 }

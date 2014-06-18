@@ -193,7 +193,7 @@ static int l_unit_m(struct table_col *col, struct table_entry *e)
 	return l_unit_raw_div(col, e, 1000000 * 60, L_COL_FMT_STR_0);
 }
 
-struct table_col_unit table_col_unit_m = {
+static struct table_col_unit table_col_unit_m = {
 	.fn	= l_unit_m,
 	.hotkey	= 'm',
 	.str	= "m",

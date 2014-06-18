@@ -26,7 +26,7 @@
 #define DATA_SIZE(x)	((size_t) (&_binary_##x##_bin_size))
 #define DATA_ADDR(x)	(&_binary_##x##_bin_start)
 
-#define STAGE2_MAX_SIZE		0x2000
+#define STAGE2_MAX_SIZE		0x3000
 #define STAGE1B_LOAD_ADDR	0xe000
 #define CCW_FLAG_CC		0x40
 #define CCW_FLAG_SLI		0x20
@@ -70,6 +70,12 @@ boot_check_data(void)
 	return 0;
 }
 
+/* Export stage 3 size for partition dump with dump kernel */
+size_t
+get_stage3_size()
+{
+	return DATA_SIZE(stage3);
+}
 
 /* Create a stage 3 loader in memory.
  * Upon success, return 0 and set BUFFER to point to the data buffer and set
@@ -95,7 +101,7 @@ boot_get_stage3(void** buffer, size_t* bytecount, address_t parm_addr,
 	params.parm_addr = (uint64_t) parm_addr;
 	params.initrd_addr = (uint64_t) initrd_addr;
 	params.initrd_len = (uint64_t) initrd_len;
-	params.load_psw = (uint64_t) (image_addr | PSW_LOAD);
+	params.load_psw = (uint64_t)(image_addr | PSW_LOAD);
 	params.extra_parm = (uint64_t) extra_parm;
 	params.flags = flags;
 	/* Initialize buffer */
@@ -460,15 +466,15 @@ boot_get_tape_dump(void** data, size_t* size, uint64_t mem)
 {
 	void* buffer;
 
-	buffer = misc_malloc(DATA_SIZE(tapedump));
+	buffer = misc_malloc(DATA_SIZE(tape2dump));
 	if (buffer == NULL)
 		return -1;
-	memcpy(buffer, DATA_ADDR(tapedump), DATA_SIZE(tapedump));
+	memcpy(buffer, DATA_ADDR(tape2dump), DATA_SIZE(tape2dump));
 	/* Write mem size to end of dump record */
-	memcpy(VOID_ADD(buffer, DATA_SIZE(tapedump) - sizeof(mem)), &mem,
+	memcpy(VOID_ADD(buffer, DATA_SIZE(tape2dump) - sizeof(mem)), &mem,
 	       sizeof(mem));
 	*data = buffer;
-	*size = DATA_SIZE(tapedump);
+	*size = DATA_SIZE(tape2dump);
 	return 0;
 }
 
@@ -478,15 +484,15 @@ boot_get_eckd_dump_stage2(void** data, size_t* size, uint64_t mem)
 {
 	void* buffer;
 
-	buffer = misc_malloc(DATA_SIZE(eckd2dump));
+	buffer = misc_malloc(DATA_SIZE(eckd2dump_sv));
 	if (buffer == NULL)
 		return -1;
-	memcpy(buffer, DATA_ADDR(eckd2dump), DATA_SIZE(eckd2dump));
+	memcpy(buffer, DATA_ADDR(eckd2dump_sv), DATA_SIZE(eckd2dump_sv));
 	/* Write mem size to end of dump record */
-	memcpy(VOID_ADD(buffer, DATA_SIZE(eckd2dump) - sizeof(mem)),
+	memcpy(VOID_ADD(buffer, DATA_SIZE(eckd2dump_sv) - sizeof(mem)),
 	       &mem, sizeof(mem));
 	*data = buffer;
-	*size = DATA_SIZE(eckd2dump);
+	*size = DATA_SIZE(eckd2dump_sv);
 	return 0;
 }
 
@@ -496,22 +502,22 @@ boot_get_eckd_mvdump_stage2(void** data, size_t* size, uint64_t mem,
 {
 	void* buffer;
 
-	buffer = misc_malloc(DATA_SIZE(eckd2mvdump));
+	buffer = misc_malloc(DATA_SIZE(eckd2dump_mv));
 	if (buffer == NULL)
 		return -1;
-	memcpy(buffer, DATA_ADDR(eckd2mvdump), DATA_SIZE(eckd2mvdump));
+	memcpy(buffer, DATA_ADDR(eckd2dump_mv), DATA_SIZE(eckd2dump_mv));
 	/* Write mem size and force indicator (as specified by zipl -M)
 	 * to end of dump record, right before 512-byte parameter table */
-	memcpy(VOID_ADD(buffer, DATA_SIZE(eckd2mvdump) - sizeof(mem) -
+	memcpy(VOID_ADD(buffer, DATA_SIZE(eckd2dump_mv) - sizeof(mem) -
 			sizeof(struct mvdump_parm_table)), &mem, sizeof(mem));
-	memcpy(VOID_ADD(buffer, DATA_SIZE(eckd2mvdump) - sizeof(mem) -
+	memcpy(VOID_ADD(buffer, DATA_SIZE(eckd2dump_mv) - sizeof(mem) -
 			sizeof(force) - sizeof(struct mvdump_parm_table)),
 	       &force, sizeof(force));
-	memcpy(VOID_ADD(buffer, DATA_SIZE(eckd2mvdump) -
+	memcpy(VOID_ADD(buffer, DATA_SIZE(eckd2dump_mv) -
 			sizeof(struct mvdump_parm_table)), &parm,
 	       sizeof(struct mvdump_parm_table));
 	*data = buffer;
-	*size = DATA_SIZE(eckd2mvdump);
+	*size = DATA_SIZE(eckd2dump_mv);
 	return 0;
 }
 

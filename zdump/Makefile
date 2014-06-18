@@ -11,7 +11,7 @@ OBJECTS = zgetdump.o opts.o zg.o \
 	  dfi_kdump.o dfi_devmem.o \
 	  dfo.o dfo_elf.o dfo_s390.o \
 	  df_s390.o \
-	  dt.o dt_s390sv.o dt_s390mv.o \
+	  dt.o dt_s390sv.o dt_s390mv.o dt_scsi.o \
 	  stdout.o
 
 ifneq ("$(WITHOUT_FUSE)","1")
@@ -23,7 +23,7 @@ endif
 
 $(OBJECTS): *.h Makefile
 
-zgetdump: $(OBJECTS) ../libutil/util_list.o
+zgetdump: $(OBJECTS) $(rootdir)/libutil/util_list.o $(rootdir)/libutil/util_part.o
 
 install: all
 	$(INSTALL) -d -m 755 $(MANDIR)/man8 $(BINDIR)

@@ -10,7 +10,7 @@
  *	0: everything was fine                      (VMCP_OK)
  *	1: CP returned a nn zero response code      (VMCP_CP)
  *	2: the response buffer was not large enough (VMCP_BUF)
- *	3: an internal Linux error occured          (VMCP_LIN)
+ *	3: an internal Linux error occurred         (VMCP_LIN)
  *	4: invalid options                          (VMCP_OPT)
  *
  * CREDITS: The idea is based on cpint of Neale Fergusson

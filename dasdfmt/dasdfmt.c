@@ -6,7 +6,7 @@
  *                  Volker Sameske,  <sameske@de.ibm.com>
  *                  Holger Smolinski,<smolinsk@de.ibm.com>
  *                  Gerhard Tonn     <ton@de.ibm.com>
- * Copyright IBM Corp. 1999,2007
+ * Copyright IBM Corp. 1999, 2013
  */
 
 #include <sys/utsname.h>
@@ -14,7 +14,8 @@
 
 #include "zt_common.h"
 #include "dasdfmt.h"
-#include "vtoc.h" 
+#include "vtoc.h"
+#include "util_proc.h"
 
 /* Full tool name */
 static const char tool_name[] = "dasdfmt: zSeries DASD format program";
@@ -48,8 +49,8 @@ static void exit_usage(int exitcode)
 	       "	       [-l <volser>      | --label=<volser>]\n"
 	       "               [-b <blocksize>   | --blocksize=<blocksize>]\n"
 	       "               [-d <disk layout> | --disk_layout=<disk layout>]\n"
-	       "               [-r <cylinder>   | --requestsize=<cylinder>]\n"
-	       "               <diskspec>\n\n",prog_name);
+	       "               [-r <cylinder>    | --requestsize=<cylinder>]\n"
+	       "               <device>\n\n",prog_name);
 
 	printf("       -t or --test     means testmode\n"
 	       "       -V or --version  means print version\n"
@@ -72,16 +73,7 @@ static void exit_usage(int exitcode)
 	       "       <disk layout> is either \n"
 	       "           'cdl' for compatible disk layout (default) or\n"
 	       "           'ldl' for linux disk layout\n"
-	       "       and <diskspec> is either\n"
-	       "           -f /dev/dasdX or --device=/dev/dasdX\n"
-	       "           if you do not use devfs\n"
-	       "         or\n"
-	       "           -f /dev/dasd/xxxx/device or "
-	       "--device=/dev/dasd/xxxx/device\n"
-	       "           and alternatively\n"
-	       "           -n xxxx or --devno=xxxx\n"
-	       "           in case you are using devfs.\n"
-	       "           xxxx is your hexadecimal device number.\n");
+	       "       <device> device node of the device to format\n");
 	exit(exitcode);
 }
 
@@ -144,34 +136,23 @@ static void program_interrupt_signal (int sig)
 
 /*
  * check given device name for blanks and some special characters
- * or create a devfs filename in case the devno was specified
  */
 static void get_device_name(dasdfmt_info_t *info, char *name, int argc, char * argv[])
 {
+	struct util_proc_dev_entry dev_entry;
 	struct stat dev_stat;
 
-	if (((info->node_specified + info->devno_specified) > 1) ||
-            ((info->node_specified + info->devno_specified) > 0 &&
-              info->device_id < argc)) 
-		ERRMSG_EXIT(EXIT_MISUSE,"%s: Device can only specified once! "
-			    "(%#04x or %s)\n", prog_name, info->devno, name);
-
-	if ((info->node_specified + info->devno_specified) == 0 &&
-            info->device_id >= argc) 
-		ERRMSG_EXIT(EXIT_MISUSE,"%s: No device specified!\n", 
+	if (info->node_specified && (info->device_id < argc))
+		ERRMSG_EXIT(EXIT_MISUSE,"%s: Device can only specified once!\n",
 			    prog_name);
 
-	if ((info->devno_specified) && 
-	    ((info->devno < 0x0000) || (info->devno > 0xffff)))
-		ERRMSG_EXIT(EXIT_MISUSE,"%s: Devno '%#04x' is not in range "
-			    "0x0000 - 0xFFFF!\n", prog_name, info->devno);
+	if (!info->node_specified && (info->device_id >= argc))
+		ERRMSG_EXIT(EXIT_MISUSE,"%s: No device specified!\n",
+			    prog_name);
 
-	if (info->devno_specified)
-		sprintf(info->devname, "/dev/dasd/%04x/device", info->devno);
-	else if (info->device_id < argc) {
+	if (info->device_id < argc) {
 		strcpy(info->devname, argv[info->device_id]);
-        }
-	else {
+        } else {
 		if ((strchr(name, ' ') != NULL)||(strchr(name, '#') != NULL)||
 		    (strchr(name, '[') != NULL)||(strchr(name, ']') != NULL)||
 		    (strchr(name, '!') != NULL)||(strchr(name, '>') != NULL)||
@@ -179,7 +160,7 @@ static void get_device_name(dasdfmt_info_t *info, char *name, int argc, char * a
 		    (strchr(name, ')') != NULL)||(strchr(name, ':') != NULL)||
 		    (strchr(name, '&') != NULL)||(strchr(name, ';') != NULL))
 			ERRMSG_EXIT(EXIT_MISUSE,"%s: Your filename contains "
-				    "blanks or special characters!\n", 
+				    "blanks or special characters!\n",
 				    prog_name);
 
 		strncpy(info->devname, name, PATH_MAX - 1);
@@ -196,6 +177,16 @@ static void get_device_name(dasdfmt_info_t *info, char *name, int argc, char * a
 			    "%s: Unable to format partition %s. Please specify a device.\n",
 			    prog_name, info->devname);
 	}
+
+	if (util_proc_dev_get_entry(dev_stat.st_rdev, 1, &dev_entry) == 0) {
+		if (strncmp(dev_entry.name, "dasd", 4) != 0)
+			ERRMSG_EXIT(EXIT_MISUSE,
+				    "%s: Unsupported device type '%s'.\n",
+				    prog_name, dev_entry.name);
+	} else {
+		printf("%s WARNING: Unable to get driver name for device node %s",
+		       prog_name, info->devname);
+	}
 }
 
 
@@ -206,7 +197,6 @@ static void init_info(dasdfmt_info_t *info)
 {
 	info->devno             = 0x0;
 	info->usage_count       = 0;
-
 	info->testmode          = 0;
 	info->verbosity         = 0;
 	info->withoutprompt     = 0;
@@ -221,7 +211,6 @@ static void init_info(dasdfmt_info_t *info)
 	info->blksize_specified = 0;
 	info->reqsize_specified = 0;
 	info->node_specified    = 0;
-	info->devno_specified   = 0;
 	info->device_id         = 0;
 	info->keep_volser	= 0;
 }
@@ -263,18 +252,12 @@ static void check_disk(dasdfmt_info_t *info)
 	info->usage_count = dasd_info.open_count;
 	info->devno       = dasd_info.devno;
         if (strncmp(dasd_info.type, "ECKD",4) != 0) {
-		if (info->devno_specified) {
-			ERRMSG_EXIT(EXIT_FAILURE, 
-				    "%s: Unsupported disk type\n%x is not an "
-				    "ECKD disk!\n", prog_name, info->devno);
-		}
-		else {
-			ERRMSG_EXIT(EXIT_FAILURE, 
-				    "%s: Unsupported disk type\n%s is not an "
-				    "ECKD disk!\n", prog_name, info->devname);
-		}
-	}                                       
-}                                    
+		ERRMSG_EXIT(EXIT_FAILURE,
+			    "%s: Unsupported disk type\n%s is not an "
+			    "ECKD disk!\n", prog_name, info->devname);
+	}
+}
+
 
 
 /*
@@ -395,12 +378,8 @@ static void dasdfmt_print_info(dasdfmt_info_t *info, volume_label_t *vlabel,
 	       cylinders, heads, (cylinders * heads));
 
 	printf("\nI am going to format the device ");
-	if (info->devno_specified)
-		printf("%x in the following way:\n", info->devno);
-	else
-		printf("%s in the following way:\n", info->devname);
-
-	printf("   Device number of device : 0x%x\n",info->devno);
+	printf("%s in the following way:\n", info->devname);
+	printf("   Device number of device : 0x%x\n", info->devno);
 	printf("   Labelling device        : %s\n",
 	       (info->writenolabel)?"no":"yes");
 
@@ -416,7 +395,7 @@ static void dasdfmt_print_info(dasdfmt_info_t *info, volume_label_t *vlabel,
 	       (p->intensity & DASD_FMT_INT_COMPAT)?"yes":"no");
 	printf("   Blocksize               : %d\n", p->blksize);
 
-	if (info->testmode) 
+	if (info->testmode)
 		printf("Test mode active, omitting ioctl.\n");
 }
 
@@ -539,9 +518,8 @@ static void dasdfmt_write_labels(dasdfmt_info_t *info, volume_label_t *vlabel,
 			    "failed, only wrote %d bytes.\n", prog_name, rc);
 
 	/* write VTOC */
-	vtoc_init_format4_label(&f4, USABLE_PARTITIONS, geo.cylinders,
-				cylinders, heads, geo.sectors, blksize,
-				dasd_info.dev_type);
+	vtoc_init_format4_label(&f4, geo.cylinders, cylinders, heads,
+				geo.sectors, blksize, dasd_info.dev_type);
 
 	vtoc_init_format5_label(&f5);
 	vtoc_init_format7_label(&f7);
@@ -817,7 +795,7 @@ static void do_format_dasd(dasdfmt_info_t *info, format_data_t *p,
 			printf("You specified to write no labels to a"
 			       " volume with more then %u cylinders.\n"
 			       "Cylinders above this limit will not be"
-			       " accessable as a linux partition!\n"
+			       " accessible as a linux partition!\n"
 			       "Type \"yes\" to continue, no will leave"
 			       " the disk untouched: ", LV_COMPAT_CYL);
 			if (fgets(inp_buffer, sizeof(inp_buffer), stdin) == NULL)
@@ -897,7 +875,6 @@ int main(int argc,char *argv[])
 	char str[ERR_LENGTH];
 	char buf[7];
 
-	char *devno_param_str   = NULL;
 	char *blksize_param_str = NULL;
 	char *reqsize_param_str = NULL;
 	char *hashstep_str      = NULL;
@@ -1026,11 +1003,6 @@ int main(int argc,char *argv[])
 			reqsize_param_str = optarg;
 			info.reqsize_specified = 1;
 			break;
-		case 'n' :
-			devno_param_str=optarg;
-			info.devno_specified=1;
-			break;
-		
 		case 'f' :
 			strncpy(dev_filename, optarg, PATH_MAX);
 			info.node_specified=1;
@@ -1054,9 +1026,6 @@ int main(int argc,char *argv[])
 	CHECK_SPEC_MAX_ONCE(info.labelspec, "label");
 	CHECK_SPEC_MAX_ONCE(info.writenolabel, "omit-label-writing flag");
 
-	if (info.devno_specified)
-		PARSE_PARAM_INTO(info.devno, devno_param_str, 16,
-				 "device number");
 	if (info.blksize_specified)
 		PARSE_PARAM_INTO(format_params.blksize,blksize_param_str,10,
 				 "blocksize");

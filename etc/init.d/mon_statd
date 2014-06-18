@@ -5,14 +5,14 @@
 # Required-Stop: $local_fs $remote_fs
 # Should-Start: 
 # Should-Stop: 
-# Default-Start: 2 3 4 5
+# Default-Start: 2 3 5
 # Default-Stop: 0 1 6
 # Short-Description: Configure the mon_fsstatd and mon_procd daemons.
 # Description: Configures the mon_fsstatd and mon_procd daemons. It uses the
 #              configuration file /etc/sysconfig/mon_statd.
 ### END INIT INFO
 
-# chkconfig: 2345 01 99
+# chkconfig: 235 01 99
 
 DAEMON=mon_statd
 FSSTATD=mon_fsstatd

@@ -1,32 +1,12 @@
 #!/bin/sh
-###############################################################################
-# Copyright IBM Corp. 2002, 2013
 #
-# Collect some configuration, trace, and debug information about the
-# Linux on System z machine
+# dbginfo.sh - Tool to collect runtime, configuration, and trace information
 #
-# Author(s): Sven Schuetz                                <sven[at]de.ibm.com>
-#            Wolfgang Taphorn                         <taphorn[at]de.ibm.com>
-#            Stefan Reimbold                  <stefan.reimbold[at]de.ibm.com>
-#            Susanne Wintenberger                     <swinten[at]de.ibm.com>
-#            Michael Mueller                             <mimu[at]de.ibm.com>
+# Copyright IBM Corp. 2002, 2014
 #
-# This file is part of the s390-tools
-#
-# s390-tools is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# s390-tools is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with s390-tools; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-###############################################################################
+
+# Switching to neutral locale
+export LC_ALL=C
 
 # The kernel release version as delivered from uname -r
 readonly KERNEL_RELEASE_VERSION="`uname -r 2>/dev/null`"
@@ -78,11 +58,11 @@ readonly OUTPUT_FILE_VMCMD="${WORKPATH}zvm_runtime.out"
 # File that includes content of files from sysfs
 readonly OUTPUT_FILE_SYSFS="${WORKPATH}sysfsfiles.out"
 
-# File that includes content of zFCP settings
-readonly OUTPUT_FILE_FCPCONF="${WORKPATH}scsi"
-
 # File that includes content of OSA OAT
 readonly OUTPUT_FILE_OSAOAT="${WORKPATH}osa_oat"
+
+# File that includes the output of journalctl
+readonly OUTPUT_FILE_JOURNALCTL="${WORKPATH}journalctl.out"
 
 # Mount point of the debug file system
 readonly MOUNT_POINT_DEBUGFS="/sys/kernel/debug"
@@ -265,9 +245,11 @@ CMDS="uname -a\
   :nm-tool\
   :route -n\
   :ip route list\
+  :ip route list table all\
   :ip rule list\
   :ip neigh list\
   :ip link show\
+  :ip ntable\
   :ipcs -a\
   :netstat -pantu\
   :netstat -s\
@@ -282,6 +264,7 @@ CMDS="uname -a\
   :lsqeth\
   :lschp\
   :lscss\
+  :lscpu -ae\
   :lsmem\
   :lsdasd\
   :ziorep_config -ADM\
@@ -311,7 +294,7 @@ CMDS="uname -a\
   :java -version\
   :cat /root/.bash_history\
   :env\
-  :ziomon_fcpconf -o ${OUTPUT_FILE_FCPCONF}\
+  :journalctl --all --no-pager --reverse --since=$(date -d '5 day ago' +%Y-%m-%d) --until=now --lines=50000 > "${OUTPUT_FILE_JOURNALCTL}"\
   "
 
 ########################################
@@ -381,7 +364,7 @@ collect_cmdsout() {
     local cmd
     local ifs_orig="${IFS}"
 
-    pr_log_stdout "1 of ${COLLECTION_COUNT}: Collecting command output"
+    pr_syslog_stdout "1 of ${COLLECTION_COUNT}: Collecting command output"
 
     IFS=:
     for cmd in ${CMDS}; do
@@ -403,7 +386,7 @@ collect_vmcmdsout() {
     local ifs_orig="${IFS}"
 
     if echo "${RUNTIME_ENVIRONMENT}" | grep -qi "z/VM" >/dev/null 2>&1; then
-	pr_log_stdout "2 of ${COLLECTION_COUNT}: Collecting z/VM command output"
+	pr_syslog_stdout "2 of ${COLLECTION_COUNT}: Collecting z/VM command output"
 
 	if type vmcp >/dev/null 2>&1; then
 	    cp_command="vmcp"
@@ -417,8 +400,8 @@ collect_vmcmdsout() {
 	    fi
 	else
 	    pr_log_stdout " "
-	    pr_log_stdout "WARNING: No program found to communicate to z/VM CP"
-	    pr_log_stdout "WARNING: Skipping the collection of z/VM command output"
+	    pr_log_stdout "${SCRIPTNAME}: Warning: No program found to communicate to z/VM CP"
+	    pr_log_stdout "       Skipping collection of z/VM command output"
 	    pr_log_stdout " "
 	    return 1
 	fi
@@ -448,7 +431,7 @@ collect_vmcmdsout() {
 	    rmmod vmcp
 	fi
     else
-	pr_log_stdout "2 of ${COLLECTION_COUNT}: Collecting z/VM command output skipped - no z/VM environment"
+	pr_syslog_stdout "2 of ${COLLECTION_COUNT}: Collecting z/VM command output skipped - no z/VM environment"
     fi
 
     pr_log_stdout " "
@@ -459,7 +442,7 @@ collect_vmcmdsout() {
 collect_procfs() {
     local file_name
 
-    pr_log_stdout "3 of ${COLLECTION_COUNT}: Collecting procfs"
+    pr_syslog_stdout "3 of ${COLLECTION_COUNT}: Collecting procfs"
 
     for file_name in ${PROCFILES}; do
 	call_collect_file "${file_name}"
@@ -478,7 +461,7 @@ collect_sysfs() {
 
     # Requires kernel version newer then 2.4
     if test ${LINUX_SUPPORT_SYSFS} -eq 0; then
-	pr_log_stdout "4 of ${COLLECTION_COUNT}: Collecting sysfs"
+	pr_syslog_stdout "4 of ${COLLECTION_COUNT}: Collecting sysfs"
 	# Requires kernel version of 2.6.13 or newer
 	if test ${LINUX_SUPPORT_SYSFSDBF} -eq 0; then
 	    if ! grep -qE "${MOUNT_POINT_DEBUGFS}.*debugfs" /proc/mounts 2>/dev/null; then
@@ -486,7 +469,7 @@ collect_sysfs() {
 		    sleep 2
 		    debugfs_mounted=1;
 		else
-		    pr_log_stdout "WARNING: \"Unable to mount debugfs ${MOUNT_POINT_DEBUGFS}\""
+		    pr_log_stdout "${SCRIPTNAME}: Warning: Unable to mount debugfs at \"${MOUNT_POINT_DEBUGFS}\""
 		fi
 	    fi
 	fi
@@ -499,14 +482,16 @@ collect_sysfs() {
 
 	find /sys -noleaf -type f -perm /444 2>/dev/null | while IFS= read -r file_name; do
 	    echo " ${file_name}"
-	    dd if="${file_name}" iflag=nonblock of="${WORKPATH}${file_name}"
+	    if ! dd if="${file_name}" status=noxfer iflag=nonblock of="${WORKPATH}${file_name}" >/dev/null 2>&1; then
+		echo "${SCRIPTNAME}: Warning: failed to copy \"${file_name}\""
+	    fi
 	done
 
 	if test ${debugfs_mounted} -eq 1; then
 	    umount "${MOUNT_POINT_DEBUGFS}"
 	fi
     else
-	pr_log_stdout "4 of ${COLLECTION_COUNT}: Collecting sysfs skipped. Kernel `uname -r` must be newer than 2.4"
+	pr_syslog_stdout "4 of ${COLLECTION_COUNT}: Collecting sysfs skipped. Kernel `uname -r` must be newer than 2.4"
     fi
 
     pr_log_stdout " "
@@ -517,7 +502,7 @@ collect_sysfs() {
 collect_logfiles() {
     local file_name
 
-    pr_log_stdout "5 of ${COLLECTION_COUNT}: Collecting log files"
+    pr_syslog_stdout "5 of ${COLLECTION_COUNT}: Collecting log files"
 
     for file_name in ${LOGFILES}; do
 	call_collect_file "${file_name}"
@@ -526,11 +511,12 @@ collect_logfiles() {
     pr_log_stdout " "
 }
 
+
 ########################################
 collect_configfiles() {
     local file_name
 
-    pr_log_stdout "6 of ${COLLECTION_COUNT}: Collecting config files"
+    pr_syslog_stdout "6 of ${COLLECTION_COUNT}: Collecting config files"
 
     for file_name in ${CONFIGFILES}; do
 	call_collect_file "${file_name}"
@@ -547,16 +533,16 @@ collect_osaoat() {
 
     if which qethqoat >/dev/null 2>&1; then
 	if test -n "${network_devices}"; then
-	    pr_log_stdout "7 of ${COLLECTION_COUNT}: Collecting osa oat output"
+	    pr_syslog_stdout "7 of ${COLLECTION_COUNT}: Collecting osa oat output"
 	    for network_device in "${network_devices}"; do
 		call_run_command "qethqoat ${network_device}" "${OUTPUT_FILE_OSAOAT}.out" &&
 		call_run_command "qethqoat -r ${network_device}" "${OUTPUT_FILE_OSAOAT}_${network_device}.raw"
 	    done
 	else
-	    pr_log_stdout "7 of ${COLLECTION_COUNT}: Collecting osa oat output skipped - no devices"
+	    pr_syslog_stdout "7 of ${COLLECTION_COUNT}: Collecting osa oat output skipped - no devices"
 	fi
     else
-	pr_log_stdout "7 of ${COLLECTION_COUNT}: Collecting osa oat output skipped - not available"
+	pr_syslog_stdout "7 of ${COLLECTION_COUNT}: Collecting osa oat output skipped - not available"
     fi
 
     pr_log_stdout " "
@@ -578,14 +564,14 @@ call_run_command() {
     if ! which "${raw_cmd}" >/dev/null 2>&1; then
         # check if command is a builtin
 	if ! command -v "${raw_cmd}" >/dev/null 2>&1; then
-	    echo "WARNING: Command \"${raw_cmd}\" not available" >> "${logfile}"
+	    echo "${SCRIPTNAME}: Warning: Command \"${raw_cmd}\" not available" >> "${logfile}"
 	    echo >> "${logfile}"
 	    return 1;
 	fi
     fi
 
     if ! eval "${cmd}" >> "${logfile}" 2>&1; then
-	echo "WARNING: Command \"${cmd}\" failed" >> "${logfile}"
+	echo "${SCRIPTNAME}: Warning: Command \"${cmd}\" failed" >> "${logfile}"
 	echo >> "${logfile}"
 	return 1
     else
@@ -622,7 +608,7 @@ call_collect_file() {
 print_version() {
     cat <<EOF
 ${SCRIPTNAME}: Debug information script version %S390_TOOLS_VERSION%
-Copyright IBM Corp. 2002, 2013
+Copyright IBM Corp. 2002, 2014
 EOF
 }
 
@@ -673,7 +659,7 @@ print_alreadyrunning() {
     cat <<EOF
 
 
-Please check the system if another instance of ${SCRIPTNAME} is already
+Please check the system if another instance of '${SCRIPTNAME}' is already
 running. If this is not the case, please remove the lock file
 '${WORKDIR_BASE}${SCRIPTNAME}.lock'.
 EOF
@@ -694,7 +680,7 @@ commandline_parse()
 	    print_version
 	else
 	    echo
-	    echo "${SCRIPTNAME}: invalid option ${cmdline_arg1}"
+	    echo "${SCRIPTNAME}: invalid option \"${cmdline_arg1}\""
 	    echo "Try '${SCRIPTNAME} --help' for more information"
 	    echo
 	    exit 1
@@ -702,7 +688,7 @@ commandline_parse()
 	exit 0
     elif test ${cmdline_count} -ge 1; then
 	echo
-	echo "ERROR: Invalid number of arguments!"
+	echo "${SCRIPTNAME}: Error: Invalid number of arguments!"
 	echo
 	print_usage
 	exit 1
@@ -717,8 +703,8 @@ environment_setup()
     if test ! -e "${WORKDIR_BASE}"; then
 	mkdir -p "${WORKDIR_BASE}"
     elif test ! -d "${WORKDIR_BASE}"; then
-	echo "ERROR: ${WORKDIR_BASE} exists but this is a file!"
-	echo "       Please make sure ${WORKDIR_BASE} is a directory."
+	echo "${SCRIPTNAME}: Error: \"${WORKDIR_BASE}\" exists but this is a file!"
+	echo "       Please make sure \"${WORKDIR_BASE}\" is a directory."
 	exit 1
     fi
 
@@ -730,8 +716,8 @@ environment_setup()
     fi
 
     if ! mkdir "${WORKPATH}" 2>/dev/null; then
-	echo "ERROR: Target directory ${WORKPATH} already exists or"
-	echo "       ${WORKDIR_BASE} does not exist!"
+	echo "${SCRIPTNAME}: Error: Target directory \"${WORKPATH}\" already exists or"
+	echo "       \"${WORKDIR_BASE}\" does not exist!"
 	exit 1
     fi
 }
@@ -746,9 +732,9 @@ create_package()
 
     if ! tar -czf "${WORKARCHIVE}" "${WORKDIR_CURRENT}"; then
 	pr_stdout " "
-	pr_stdout "ERROR: Collection of data failed!"
-	pr_stdout "       The creation of ${WORKARCHIVE} was not successful."
-	pr_stdout "       Please check the directory ${WORKDIR_BASE}"
+	pr_stdout "${SCRIPTNAME}: Error: Collection of data failed!"
+	pr_stdout "       The creation of \"${WORKARCHIVE}\" was not successful."
+	pr_stdout "       Please check the directory \"${WORKDIR_BASE}\""
 	pr_stdout "       to provide enough free available space."
     else
 	pr_stdout " "
@@ -766,14 +752,14 @@ environment_cleanup()
 {
     if ! rm -rf "${WORKPATH}" 2>/dev/null; then
 	pr_stdout " "
-	pr_stdout "WARNING: Deletion of ${WORKPATH} failed"
-	pr_stdout "Please remove the directory manually"
+	pr_stdout "${SCRIPTNAME}: Warning: Deletion of \"${WORKPATH}\" failed"
+	pr_stdout "       Please remove the directory manually"
 	pr_stdout " "
     fi
     if ! rm -f "${WORKDIR_BASE}${SCRIPTNAME}".lock 2>/dev/null; then
 	pr_stdout " "
-	pr_stdout "WARNING: Deletion of ${WORKDIR_BASE}${SCRIPTNAME} failed"
-	pr_stdout "Please remove the file manually"
+	pr_stdout "${SCRIPTNAME}: Warning: Deletion of \"${WORKDIR_BASE}${SCRIPTNAME}\" failed"
+	pr_stdout "       Please remove the file manually"
 	pr_stdout " "
     fi
 }
@@ -784,12 +770,13 @@ environment_cleanup()
 emergency_exit()
 {
     pr_stdout " "
-    pr_stdout "INFO: Data collection has been interrupted"
-    pr_stdout "INFO: Cleanup of temporary collected data"
+    pr_stdout "${SCRIPTNAME}: Info: Data collection has been interrupted"
+    pr_stdout "       Cleanup of temporary collected data"
     environment_cleanup
-    pr_stdout "INFO: Emergency exit processed"
+    pr_stdout "${SCRIPTNAME}: Info: Emergency exit processed"
 
     pr_stdout " "
+    logger -t "${SCRIPTNAME}" "Data collection interrupted"
     exit;
 }
 
@@ -811,10 +798,27 @@ pr_log_stdout()
 }
 
 
+########################################
+# Function to print to stdout and into log file when rediretion is active
+pr_syslog_stdout()
+{
+    echo "$@"
+    echo "$@" >&8
+    logger -t ${SCRIPTNAME} "$@"
+}
+
+
 ###############################################################################
 # Running the script
 
 commandline_parse ${*}
+
+# Verification to run as root
+if test `/usr/bin/id -u 2>/dev/null` -ne 0; then
+    echo "${SCRIPTNAME}: Error: You must be user root to run \"${SCRIPTNAME}\"!"
+    exit 1
+fi
+
 environment_setup
 print_version
 
@@ -829,6 +833,8 @@ pr_log_stdout "Hardware platform     = `uname -i`"
 pr_log_stdout "Kernel version        = ${KERNEL_VERSION}.${KERNEL_MAJOR_REVISION}.${KERNEL_MINOR_REVISION} (`uname -r 2>/dev/null`)"
 pr_log_stdout "Runtime environment   = ${RUNTIME_ENVIRONMENT}"
 pr_log_stdout ""
+
+logger -t "${SCRIPTNAME}" "Starting data collection"
 
 collect_cmdsout
 
@@ -849,6 +855,8 @@ collect_osaoat
 create_package
 
 environment_cleanup
+
+logger -t "${SCRIPTNAME}" "Data collection completed"
 
 exec 1>&8 2>&9 8>&- 9>&-
 

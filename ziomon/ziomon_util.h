@@ -36,7 +36,7 @@ struct adapter_utilization {
 } __attribute__ ((packed));
 
 /** Note that this message will always be transmitted in first and final
- * interval. Inbetween, only messages with actual traffic will be transmitted.
+ * interval. In-between, only messages with actual traffic will be transmitted.
  */
 struct utilization_data {
 	__u64				timestamp;
@@ -64,7 +64,7 @@ struct ioerr_cnt {
 } __attribute__ ((packed));
 
 /* Note that this message will always be transmitted in first and final
- * interval. Inbetween, only messages with actual traffic will be transmitted.
+ * interval. In-between, only messages with actual traffic will be transmitted.
  */
 struct ioerr_data {
 	__u64			timestamp;

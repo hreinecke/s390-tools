@@ -1,4 +1,4 @@
-s390-tools (1.23.1)
+s390-tools (1.24.1)
    Category operating system. Contains the source tree of a set of
    user space utilities that should to be used together with the
    System z (s390) Linux kernel and device drivers.
@@ -56,12 +56,8 @@ s390-tools (1.23.1)
      debugging purposes.
 
    * zfcpdump:
-     Dump tool to create system dumps on fibre channel attached SCSI disks.
-     It is installed using the zipl command.
-
-   * zfcpdump_v2:
-     Version 2 of the zfcpdump tool. Now based on the upstream 2.6.26 Linux
-     kernel.
+     Dump tool to create system dumps on fibre channel attached SCSI disk
+     partitions. It is installed using the "zipl -d" command.
 
    * ip_watcher:
      Provides HiperSockets Network Concentrator functionality.
@@ -186,6 +182,9 @@ s390-tools (1.23.1)
      Use qethqoat to query the OSA address table and display physical and
      logical device information.
 
+   * zdsfs:
+     Use the zdsfs command to mount a z/OS DASD as Linux file system.
+
 For more information refer to the following publications:
    * "Device Drivers, Features, and Commands" chapter "Useful Linux commands"
    * "Using the dump tools"
@@ -207,12 +206,14 @@ Dependencies:
      For executing the ziomon tools an installed blktrace package is required.
      See: git://git.kernel.dk/blktrace.git
 
-   * cmsfs-fuse/zgetdump:
-     cmsfs-fuse and zgetdump depend on FUSE. FUSE is provided by installing
-     the fuse and libfuse packages and by a kernel compiled with CONFIG_FUSE_FS.
-     For compiling the s390-tools package the fuse-devel package is required.
-     For further information about FUSE see: http://fuse.sourceforge.net/
-     cmsfs-fuse requires FUSE version 2.8.1 or newer for full functionality.
+   * cmsfs-fuse/zdsfs/zgetdump:
+     The tools cmsfs-fuse, zdsfs, and zgetdump depend on FUSE. FUSE is
+     provided by installing the fuse and libfuse packages and by a kernel
+     compiled with CONFIG_FUSE_FS. For compiling the s390-tools package the
+     fuse-devel package is required.
+     The cmsfs-fuse tool requires FUSE version 2.8.1 or newer for full
+     functionality.
+     For further information about FUSE see: http://fuse.sourceforge.net
 
    * hyptop:
      The ncurses-devel package is required to build hyptop.
@@ -229,6 +230,41 @@ Dependencies:
 
 Release History:
 ================
+1.24.1
+    Changes of existing tools:
+    - dbginfo.sh: Cleanup messages of the script
+    - dbginfo.sh: Reduced log output for sysfs collection
+    - dbginfo.sh: Adding data collection from journalctl
+
+    Bug Fixes:
+    - lsdasd: Fix device selection for a given busid
+    - zipl dump tools: Fix dump device size detection
+    - zipl dump tools: Ensure that last progress message is printed
+    - zipl: Fix I/O error recovery
+    - zipl: Fix FBA boot
+    - znetconf, lsqeth: Allow for 16-char network interface names
+
+1.24.0
+    Added new tool:
+    - zdsfs
+
+    Changes of existing tools:
+    - zipl/zfcpdump: Add support for SCSI partition dump (zipl -d option)
+    - zipl/zfcpdump: Remove support for SCSI file system dump (zipl -D option)
+    - zipl: Re-write boot loaders in C
+    - dbginfo.sh: Log script execution in syslog
+    - dbginfo.sh: Run script in defined locale environment
+    - dbginfo.sh: Verification to run script as root
+    - dasdfmt: Remove devfs support option -n
+    - dasdview: Remove devfs support option -n
+    - cpuplugd,dumpconf,mon_statd: Remove runlevel 4 from system 5 init scripts
+    - build process: Add C=1 option for static code analysis
+    - build process: Add -Wunused-parameter to default warning options
+
+    Bug Fixes:
+    - dbginfo.sh: Remove execution of ziomon_fcpconf
+    - zipl: Fix segmentation fault in automenu array
+
 1.23.1
     Changes of existing tools:
     - zgetdump: Enhance --select option handling
@@ -765,7 +801,7 @@ Release History:
           * mount: Mount dump instead of copying it to standard output
 
     - zgetdump: Remove multi-volume tape dump support
-          The capacity of todays tape cartridges is big enough for dumping
+          The capacity of today's tape cartridges is big enough for dumping
           large systems. Therefore multi-volume tape dump support is no longer
           needed.
 

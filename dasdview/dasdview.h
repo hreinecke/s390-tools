@@ -1,13 +1,14 @@
 /*
  * File...........: s390-tools/dasdview/dasdview.h
  * Author(s)......: Horst Hummel <horst.hummel@de.ibm.com>
- * Copyright IBM Corp. 2002, 2006.
+ * Copyright IBM Corp. 2002, 2013.
  */
 
 #ifndef DASDVIEW_H
 #define DASDVIEW_H
 
 #include <limits.h>
+#include "u2s.h"
 
 /********************************************************************************
  * SECTION: Definitions needed for DASD-API (see dasd.h)
@@ -193,13 +194,6 @@ struct dasd_eckd_characteristics {
 #define SEEK_STEP 4194304LL
 #define DUMP_STRING_SIZE 1024LL
 
-#define PARSE_PARAM_INTO(x, param, base, str) \
-	{ x=(int)strtol(param, &endptr, base); \
-	if (*endptr)  \
-        {sprintf(error_str, "Invalid parameter format.\n"); \
-         dasdview_error(usage_error);}}
-
-
 #define ERROR_STRING_SIZE 1024
 char error_str[ERROR_STRING_SIZE];
 
@@ -219,7 +213,6 @@ typedef struct dasdview_info
 	dasd_information2_t dasd_info;
 	int dasd_info_version;
 	int blksize;
-	int devno;
 	struct hd_geometry geo;
 	u_int32_t hw_cylinders;
 
@@ -229,7 +222,6 @@ typedef struct dasdview_info
 	int format2;
 
 	int action_specified;
-	int devno_specified;
 	int node_specified;
 	int begin_specified;
 	int size_specified;
@@ -241,6 +233,7 @@ typedef struct dasdview_info
 	int vtoc;
 	int vtoc_info;
 	int vtoc_f1;
+	int vtoc_f3;
 	int vtoc_f4;
 	int vtoc_f5;
 	int vtoc_f7;
@@ -261,6 +254,14 @@ typedef struct dasdview_info
 	int f7c;
 	int f8c;
 	int f9c;
+
+	char busid[U2S_BUS_ID_SIZE];
+	int busid_valid;
+	int raw_track_access;
+	struct zdsroot *zdsroot;
+	struct raw_vtoc *rawvtoc;
+	struct dasd *dasd;
+
 } dasdview_info_t;
 
 
@@ -269,7 +270,6 @@ typedef struct dasdview_info
 /* struct options for getopt */
 static struct option dasdview_getopt_long_options[]=
 {
-	{ "devno",       1, 0, 'n'},
 	{ "devnode",     1, 0, 'f'},
 	{ "version",     0, 0, 'v'},
 	{ "begin",       1, 0, 'b'},

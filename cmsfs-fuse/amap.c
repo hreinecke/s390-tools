@@ -73,8 +73,9 @@ static off_t get_amap_addr(int level, off_t addr, off_t ptr)
 	if (level--) {
 		ptr = get_fixed_pointer(ptr + (off_t) block * PTR_SIZE);
 		if (!ptr)
-			DIE("amap invalid ptr at addr: %lx\n",
-				ptr + (off_t) block * PTR_SIZE);
+			DIE("amap invalid ptr at addr: %llx\n",
+				(unsigned long long) ptr +
+				(off_t) block * PTR_SIZE);
 		return get_amap_addr(level, addr, ptr);
 	}
 	return ptr;

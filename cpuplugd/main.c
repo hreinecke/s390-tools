@@ -69,7 +69,7 @@ static struct sigaction act;
 /*
  * Handle the sigfpe signal which we might catch during rule evaluating
  */
-static void sigfpe_handler(int sig)
+static void sigfpe_handler(int UNUSED(sig))
 {
 	longjmp(jmpenv, 1);
 }

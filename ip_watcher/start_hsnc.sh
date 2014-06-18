@@ -1,12 +1,11 @@
 #!/bin/bash
 #
-# start_hsnc.sh
+# start_hsnc.sh - HiperSockets Network Concentrator
+#
+# Wrapper start script for ip_watcher.pl, also cleanup, when ip_watcher.pl
+# gets killed.
 #
 # Copyright IBM Corp. 2003, 2011
-# Author(s): Utz Bacher <utz.bacher@de.ibm.com>
-#
-# wrapper start script for ip_watcher.pl, also cleanup, when ip_watcher.pl
-# gets killed
 #
 
 #

@@ -92,6 +92,46 @@ _start:
 	.long  0x31000000+.Lseek16+2,0x60000005  # search
 	.long  0x08000000+.Lsearch16,0x00000000  # tic back
 	.long  0x06000000,0x40000000             # read
+	.long  0x07000000+.Lseek17,0x60000006    # seek
+.Lsearch17:
+	.long  0x31000000+.Lseek17+2,0x60000005  # search
+	.long  0x08000000+.Lsearch17,0x00000000  # tic back until found
+	.long  0x06000000,0x40000000             # read
+	.long  0x07000000+.Lseek18,0x60000006    # seek
+.Lsearch18:
+	.long  0x31000000+.Lseek18+2,0x60000005  # search
+	.long  0x08000000+.Lsearch18,0x00000000  # tic back
+	.long  0x06000000,0x40000000             # read
+	.long  0x07000000+.Lseek19,0x60000006    # seek
+.Lsearch19:
+	.long  0x31000000+.Lseek19+2,0x60000005  # search
+	.long  0x08000000+.Lsearch19,0x00000000  # tic back
+	.long  0x06000000,0x40000000             # read
+	.long  0x07000000+.Lseek20,0x60000006    # seek
+.Lsearch20:
+	.long  0x31000000+.Lseek20+2,0x60000005  # search
+	.long  0x08000000+.Lsearch20,0x00000000  # tic back
+	.long  0x06000000,0x40000000             # read
+	.long  0x07000000+.Lseek21,0x60000006    # seek
+.Lsearch21:
+	.long  0x31000000+.Lseek21+2,0x60000005  # search
+	.long  0x08000000+.Lsearch21,0x00000000  # tic back
+	.long  0x06000000,0x40000000             # read
+	.long  0x07000000+.Lseek22,0x60000006    # seek
+.Lsearch22:
+	.long  0x31000000+.Lseek22+2,0x60000005  # search
+	.long  0x08000000+.Lsearch22,0x00000000  # tic back
+	.long  0x06000000,0x40000000             # read
+	.long  0x07000000+.Lseek23,0x60000006    # seek
+.Lsearch23:
+	.long  0x31000000+.Lseek23+2,0x60000005  # search
+	.long  0x08000000+.Lsearch23,0x00000000  # tic back
+	.long  0x06000000,0x40000000             # read
+	.long  0x07000000+.Lseek24,0x60000006    # seek
+.Lsearch24:
+	.long  0x31000000+.Lseek24+2,0x60000005  # search
+	.long  0x08000000+.Lsearch24,0x00000000  # tic back
+	.long  0x06000000,0x40000000             # read
 .Lseek1:
 	.long  0,0
 .Lseek2:
@@ -123,6 +163,22 @@ _start:
 .Lseek15:
 	.long  0,0
 .Lseek16:
+	.long  0,0
+.Lseek17:
+	.long  0,0
+.Lseek18:
+	.long  0,0
+.Lseek19:
+	.long  0,0
+.Lseek20:
+	.long  0,0
+.Lseek21:
+	.long  0,0
+.Lseek22:
+	.long  0,0
+.Lseek23:
+	.long  0,0
+.Lseek24:
 	.long  0,0
 .org 1024 # Stage 1b should have 1024 byte
 .Lend:

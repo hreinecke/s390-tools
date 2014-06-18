@@ -677,7 +677,7 @@ int main(int argc, char *argv[])
 	pthread_kill(interval_thread, SIGINT);
 	pthread_join(interval_thread, NULL);
 
-	/* aquire mutes before closing the file to avoid data corruption */
+	/* acquire mutex before closing the file to avoid data corruption */
 	pthread_mutex_lock(&dstat_mutex);
 	zfcpdd_close_output(&binary);
 	pthread_mutex_unlock(&dstat_mutex);

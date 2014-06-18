@@ -729,8 +729,9 @@ scan_check_section_data(char* keyword[], int* line, char* name,
 			*type = section_dump;
 			main_keyword = scan_keyword_name(scan_keyword_dumpto);
 		} else if (keyword[(int) scan_keyword_dumptofs]) {
-			*type = section_dumpfs;
-			main_keyword = scan_keyword_name(scan_keyword_dumptofs);
+			error_reason("Option dumptofs is deprecated, "
+				     "use dumpto instead");
+			return -1;
 		} else if (keyword[(int) scan_keyword_mvdump]) {
 			*type = section_mvdump;
 			main_keyword = scan_keyword_name(scan_keyword_mvdump);
@@ -1672,10 +1673,14 @@ scan_build_automenu(struct scan_token* scan)
 		if (scan[i].id == scan_id_section_heading)
 			num_sections++;
 	}
-	size = /* old scan array + delimiter */ i + 1 +
-	       /* defaultboot heading + keyword */ 2 +
-	       /* automenu heading + keywords */ 10 +
-	       /* missing target definitions */ num_sections * num_targets;
+	size = /* old scan array + delimiter */     i + 1 +
+	       /* defaultboot heading  */           1 +
+	       /* defaultmenu */                    1 +
+	       /* menu heading  */                  1 +
+	       /* keyword default,prompt,timeout */ 3 +
+	       /* target keywords*/                 num_targets +
+	       /* missing target definitions */     num_sections * num_targets +
+	       /* number assigment  */              num_sections;
 	size *= sizeof(struct scan_token);
 	new_scan = misc_malloc(size);
 	if (!new_scan)

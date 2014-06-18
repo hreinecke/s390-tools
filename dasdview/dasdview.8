@@ -9,9 +9,9 @@ to the console.
 .br
          [-i] [-x] [-j] [-c]
 .br
-         [-l] [-t {\fIinfo\fR|\fIf1\fR|\fIf4\fR|\fIf5\fR|\fIf7\fR|\fIf8\fR|\fIf9\fR}]
+         [-l] [-t {\fIinfo\fR|\fIf1\fR|\fIf3\fR|\fIf4\fR|\fIf5\fR|\fIf7\fR|\fIf8\fR|\fIf9\fR}]
 .br
-         {-n \fIdevno\fR|-f \fInode\fR} \fIdevice\fR
+         \fIdevice\fR
 .SH DESCRIPTION
 \fBdasdview\fR prints you some useful information of your disks to the console.
 You can display a disk dump by specifying start point and offset and you can 
@@ -19,6 +19,21 @@ print the volume label and VTOC entries.
 The \fIdevice\fR is the node of the device (e.g. '/dev/dasda').
 Any device node created by udev for kernel 2.6 can be used 
 (e.g. '/dev/dasd/0.0.b100/disc').
+
+DASD devices in raw_track_access mode are supported and detected
+automatically.  When in raw_track_access mode, the same basic
+functions are available as in the regular mode, but the output may
+have a slightly different layout:
+.IP \(bu 2
+The disk dump functions (\fB-b\fR and \fB-s\fR) print the count,
+key and data information for the whole track, and not just the
+contents of the data areas.
+.IP \(bu 2
+The VTOC listing (\fB-t\fR) print all specified DSCBs in the same
+format as in the regular mode, but in the sequence as they appear in
+the VTOC. The \fB-t info\fR overview contains more details for each
+data set than in the regular mode, to support the larger variety of
+data set layouts.
 
 .SH OPTIONS
 .TP
@@ -43,12 +58,16 @@ If no size is specified dasdview will take the default size. The variable
 The default for \fIbegin\fR is \fI0\fR.
 .br
 
-\fBNote:\fR dasdview will show you the content of your disk using the DASD 
+\fBNote 1:\fR dasdview will show you the content of your disk using the DASD
 driver. If this driver decides to hide or add some parts of the disk, you have 
 to live with it. This happens for example with the first two tracks of a 
 cdl-formatted disk. In this case the DASD driver fills up shorter blocks with 
 zeros to have a constant blocksize. And all applications, including dasdview, 
 believe it.
+.br
+\fBNote 2:\fR In raw_track_access mode \fIbegin\fR must be aligned to
+track boundaries. A simple way to do that is to specify a track or
+cylinder as starting point.
 .br
 
 examples:
@@ -77,7 +96,13 @@ value is specified dasdview will take the default start value. The variable
     size[k|m|b|t|c]
 
 .br
-The default for \fIsize\fR is \fI128\fR.
+\fBNote:\fR In raw_track_access mode \fIsize\fR must be a multiple of
+one track. A simple way to do that is to specify the size in tracks or
+cylinders.
+
+.br
+The default for \fIsize\fR is \fI128\fR in regular mode and \fI1t\fR
+in raw_track_access mode.
 .br
 
 examples:
@@ -112,7 +137,8 @@ you will get 8 Bytes per line in hex, ascii and ebcdic. And in addition a line
 number and a decimal and hexadecimal byte count will be printed.
 .br
 The \fB-2\fR option makes only sense with the \fB-b\fR and/or the \fB-s\fR 
-options. 
+options. In raw_track_access mode this format is not supported and the
+option will be ignored.
 
 .TP
 \fB-i\fR or \fB--info\fR 
@@ -153,6 +179,11 @@ systems would see (e.g. data set names and sizes).
 Print the content of all format 1 DSCBs. 
 .br
 
+\fIf3\fR:
+.br
+Print the content of all format 3 DSCBs.
+.br
+
 \fIf4\fR: 
 .br
 Print the content of the format 4 DSCB.
@@ -183,42 +214,9 @@ Print the content of all format 9 DSCBs.
 Print the content of all DSCBs. 
 
 .TP
-\fB-n\fR \fIdevno\fR or \fB--devno=\fR\fIdevno\fR
-Specify the device using the device number \fIdevno\fR. This option is only 
-usable if you system has switched on the device file system.
-.br
-
-NOTE: This option is now deprecated. Use the required parameter \fIdevice\fR
-instead.
-.br
-
-example:
-.br
-You want to display information about your DASD with hexadecimal device 
-number 193. Then you could use the following command:
-.br
-
-dasdview -i -n 193
-
-.TP
 \fB-f\fR \fInode\fR or \fB--devnode=\fR\fInode\fR
-Specify the device using the device node \fIdevnode\fR. This option can also 
-be used in case you don't use the device file system.
-.br
-
 NOTE: This option is now deprecated. Use the required parameter \fIdevice\fR
 instead.
 .br
-
-example:
+Specify the device using the device node. \fInode\fR is the complete path to the device.
 .br
-You want to display information about your DASD with device node 
-\fI/dev/dasda\fR or \fI/dev/dasd/0193/device\fR. Then you could use the 
-following commands:
-.br
-
-dasdview -i -f /dev/dasda
-.br
-or
-.br
-dasdview -i -f /dev/dasd/0193/device

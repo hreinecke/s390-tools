@@ -234,16 +234,16 @@ or configuration section on the command line at the same time.
 .TP
 .BR "\-d <DEVNODE[,SIZE]>" " or " "--dumpto=<DEVNODE[,SIZE]>"
 Install a system dump record on the device identified by DEVNODE.
-Supported devices are DASD ECKD or FBA disk partitions 
+Supported devices are SCSI disk partitions, DASD ECKD or FBA disk partitions,
 and IBM 3480/3490/3590/3592 tape devices.
 
-An optional decimal SIZE parameter may be specified to determine the
-maximum dump size in bytes. SIZE can be suffixed by either of the letters
-K, M or G to signify that the decimal number be interpreted as kilobytes,
-megabytes or gigabytes respectively. SIZE will be rounded up to the next
-megabyte boundary. Note that when you specify a SIZE lower than the actual
-memory size used by linux (see kernel parameter mem=), the resulting dump
-will be incomplete.
+With the exception of SCSI, an optional decimal SIZE parameter may be
+specified to determine the maximum dump size in bytes. SIZE can be suffixed
+by either of the letters K, M or G to signify that the decimal number be
+interpreted as kilobytes, megabytes or gigabytes respectively. SIZE will be
+rounded up to the next megabyte boundary. Note that when you specify a SIZE
+lower than the actual memory size used by linux (see kernel parameter mem=),
+the resulting dump will be incomplete.
 
 Note that on partitions formatted with the ECKD/linux disk layout, the dump
 record will be overwritten by system dump data so that it can be used for
@@ -255,21 +255,8 @@ It is not possible to specify both this parameter and the name of a menu
 or configuration section on the command line at the same time.
 
 .TP
-.BR "\-D <DEVNODE[,SIZE]>" " or " "--dumptofs=<DEVNODE[,SIZE]>"
-Install a dump record on the target device which writes system dumps to the
-file system on the disk partition identified by DEVNODE if supported by the
-hardware.
-
-An optional decimal SIZE parameter may be specified to determine the
-maximum dump size in bytes. SIZE can be suffixed by either of the letters
-K, M or G to signify that the decimal number be interpreted as kilobytes,
-megabytes or gigabytes respectively. SIZE will be rounded up to the next
-megabyte boundary. Note that when you specify a SIZE lower than the actual
-memory size used by linux (see kernel parameter mem=), the resulting dump
-will be incomplete.
-
-It is not possible to specify both this parameter and the name of a menu
-or configuration section on the command line at the same time.
+.BR "\-D" " or " "\-\-dumptofs"
+This option has been removed, use --dumpto instead.
 
 .TP
 .BR "\-M <DUMPLIST[,SIZE]>" " or " "--mvdump=<DUMPLIST[,SIZE]>"
@@ -312,8 +299,7 @@ This option cannot be used together with either
 .BR \-\-parmfile ,
 .BR \-\-parameters ,
 .BR \-\-segment ,
-.BR \-\-dumpto ,
-.BR \-\-dumptofs " or"
+.BR \-\-dumpto " or"
 .BR \-\-mvdump .
 
 .TP

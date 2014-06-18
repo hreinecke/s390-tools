@@ -26,7 +26,7 @@
 #define IPL_TYPE_LEN_MAX	100
 #define NSS_NAME_LEN_MAX	8
 
-struct globals {
+extern struct globals {
 	char			prog_name[256];	/* Program name */
 } g;
 

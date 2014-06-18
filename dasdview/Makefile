@@ -1,12 +1,14 @@
 include ../common.mak
 
 CPPFLAGS += -I../include -DSYSFS
+LDLIBS += -lzds
+LDFLAGS += -L../libzds
 
 all: dasdview
 
-dasdview.o: dasdview.h ../include/zt_common.h
+dasdview.o: dasdview.h ../include/zt_common.h ../include/libzds.h
 
-dasdview: dasdview.o ../libvtoc/vtoc.o ../libu2s/u2s.o
+dasdview: dasdview.o ../libu2s/u2s.o
 
 install: all
 	$(INSTALL) -d -m 755 $(BINDIR) $(MANDIR)/man8

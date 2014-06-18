@@ -31,7 +31,7 @@ static const char* usage_text[] = {
 	"Usage: tunedasd [OPTION] COMMAND device",
 	"",
 	"Adjust tunable DASD parameters. The DEVICE is the node of the device "
-	"(e.g. '/dev/dasda') or a list of devices seperated by a space "
+	"(e.g. '/dev/dasda') or a list of devices separated by a space "
 	"character.",
 	"",
 	"-h, --help               Print this help, then exit",

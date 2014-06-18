@@ -35,9 +35,8 @@ struct file_buffer {
  * the file buffer and SIZE (if non-null) to contain the file size. Return
  * non-zero otherwise. Add a null-byte at the end of the buffer if
  * NIL_TERMINATE is non-zero.  */
-int
-misc_read_special_file(const char* filename, char** buffer, size_t* size,
-		       int nil_terminate)
+static int misc_read_special_file(const char* filename, char** buffer,
+				  size_t* size, int nil_terminate)
 {
 	FILE* file;
 	char* data;
@@ -102,12 +101,10 @@ get_file_buffer(struct file_buffer* file, const char *filename)
 static void
 free_file_buffer(struct file_buffer* file)
 {
-	if (file->buffer != NULL) {
-		free(file->buffer);
-		file->buffer = NULL;
-		file->pos = 0;
-		file->length = 0;
-	}
+	free(file->buffer);
+	file->buffer = NULL;
+	file->pos = 0;
+	file->length = 0;
 }
 
 
@@ -276,10 +273,8 @@ scan_part_entry(struct file_buffer* file, struct proc_part_entry* entry)
 void
 proc_part_free_entry(struct proc_part_entry* entry)
 {
-	if (entry->name != NULL) {
-		free(entry->name);
-		entry->name = NULL;
-	}
+	free(entry->name);
+	entry->name = NULL;
 }
 
 /* Scan a line of the specified /proc/devices FILE buffer and advance the
@@ -317,10 +312,8 @@ scan_dev_entry(struct file_buffer* file, struct proc_dev_entry* entry,
 void
 proc_dev_free_entry(struct proc_dev_entry* entry)
 {
-	if (entry->name != NULL) {
-		free(entry->name);
-		entry->name = NULL;
-	}
+	free(entry->name);
+	entry->name = NULL;
 }
 
 

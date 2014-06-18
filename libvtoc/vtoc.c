@@ -622,7 +622,6 @@ vtoc_write_label (char *device,
 void 
 vtoc_init_format4_label (
 	format4_label_t    *f4,
-	unsigned int usable_partitions,
 	unsigned int compat_cylinders,
 	unsigned int real_cylinders,
 	unsigned int tracks,
@@ -731,7 +730,6 @@ vtoc_init_format7_label (format7_label_t *f7)
  * format1 or format 8 label, all but the field DS1FMTID
  */
 static void vtoc_init_format_1_8_label (
-	char *volid,
         unsigned int blksize,
 	extent_t *part_extent,
 	format1_label_t *f1)
@@ -795,22 +793,20 @@ static void vtoc_init_format_1_8_label (
 }
 
 void vtoc_init_format1_label (
-	char *volid,
         unsigned int blksize,
 	extent_t *part_extent,
 	format1_label_t *f1)
 {
-	vtoc_init_format_1_8_label(volid, blksize, part_extent, f1);
+	vtoc_init_format_1_8_label(blksize, part_extent, f1);
 	f1->DS1FMTID = 0xf1;
 }
 
 void vtoc_init_format8_label (
-	char *volid,
         unsigned int blksize,
 	extent_t *part_extent,
 	format1_label_t *f8)
 {
-	vtoc_init_format_1_8_label(volid, blksize, part_extent, f8);
+	vtoc_init_format_1_8_label(blksize, part_extent, f8);
 	f8->DS1FMTID = 0xf8;
 }
 
@@ -898,7 +894,6 @@ vtoc_reorganize_FMT5_extents (format5_label_t *f5)
 void 
 vtoc_update_format5_label_add (format5_label_t *f5,
 			       int verbose,
-			       int cyl,
 			       int trk,
 			       u_int16_t a, 
 			       u_int16_t b, 
@@ -994,7 +989,6 @@ vtoc_update_format5_label_add (format5_label_t *f5,
 void 
 vtoc_update_format5_label_del (format5_label_t *f5,
 			       int verbose,
-			       int cyl,
 			       int trk,
 			       u_int16_t a,
 			       u_int16_t b,
@@ -1077,8 +1071,8 @@ vtoc_update_format5_label_del (format5_label_t *f5,
 			ext->fc = (a - ext->t) / trk;
 			ext->ft = (a - ext->t) % trk;
 
-			vtoc_update_format5_label_add(f5, verbose, 
-						      cyl, trk, x, y, z);
+			vtoc_update_format5_label_add(f5, verbose,
+						      trk, x, y, z);
 
 			if (verbose) 
 				printf("FMT5 del extent: 2 pieces\n");
@@ -1333,11 +1327,11 @@ void vtoc_set_freespace(format4_label_t *f4, format5_label_t *f5,
 		z =  (u_int8_t) ((stop - start + 1) % trk);
 
 		if (ch == '+') {
-			vtoc_update_format5_label_add(f5, verbose, cyl, trk,
+			vtoc_update_format5_label_add(f5, verbose, trk,
 						      x, y, z);
 		}
 		else if (ch == '-') {
-			vtoc_update_format5_label_del(f5, verbose, cyl, trk,
+			vtoc_update_format5_label_del(f5, verbose, trk,
 						      x, y, z);
 		}
 		else {

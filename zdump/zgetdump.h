@@ -94,5 +94,6 @@ extern struct dfo dfo_elf;
  */
 extern struct dt dt_s390mv;
 extern struct dt dt_s390sv;
+extern struct dt dt_scsi;
 
 #endif /* ZGETDUMP_H */

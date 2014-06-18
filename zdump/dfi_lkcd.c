@@ -236,7 +236,7 @@ static int mem_init_flex(void)
 /*
  * Do we have a full dump?
  */
-static int is_full_dump()
+static int is_full_dump(void)
 {
 	u64 full_size;
 	int pages;

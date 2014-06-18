@@ -234,9 +234,9 @@ void dfi_info_print(void)
 /*
  * Add memory chunk to memory
  */
-void mem_chunk_create(struct mem *mem, u64 start, u64 size, void *data,
-		      dfi_mem_chunk_read_fn read_fn,
-		      dfi_mem_chunk_free_fn free_fn)
+static void mem_chunk_create(struct mem *mem, u64 start, u64 size, void *data,
+			     dfi_mem_chunk_read_fn read_fn,
+			     dfi_mem_chunk_free_fn free_fn)
 {
 	struct dfi_mem_chunk *mem_chunk;
 
@@ -500,7 +500,7 @@ struct util_list *dfi_cpu_list(void)
  */
 void dfi_mem_read(u64 addr, void *buf, size_t cnt)
 {
-	return mem_read(&l.mem_virt, addr, buf, cnt);
+	mem_read(&l.mem_virt, addr, buf, cnt);
 }
 
 /*

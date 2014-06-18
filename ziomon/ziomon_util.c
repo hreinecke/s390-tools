@@ -310,7 +310,7 @@ struct options {
 	int   	num_hosts;	/* total number of hosts */
 	int   	num_hosts_a;	/* number of allocated host & lun structures */
 	long   *host_nr;	/* array if host numbers. to trace */
-	char  **host_path;	/* array of pathes to utilization files */
+	char  **host_path;	/* array of paths to utilization files */
 	int     num_luns;	/* number of luns */
 	char  **luns;		/* array of luns to monitor */
 	__u32  *luns_prev;	/* array of previous values of luns */

@@ -6,7 +6,7 @@
 #            Michael Holzheu (holzheu@linux.vnet.ibm.com)
 #
 # Startup for IPL at address 0
-# Second stage boot loader is loaded to 0x2000 and starts at 0x2008
+# Second stage boot loader is loaded to 0x2000 and starts at 0x2018
 #
 # The first 24 bytes are loaded by IPL to addresses 0-23 (PSW and two CCWs).
 # The CCWs on 8-23 are used as a continuation of the implicit IPL channel
@@ -17,7 +17,7 @@
 	.org   0x0
 	.globl _start
 _start:
-	.long  0x00080000,0x80002008		# The first 24 byte are loaded
+	.long  0x00080000,0x80002018		# The first 24 byte are loaded
 	.long  0x02000000,0x60000000+.Lend	# by ipl to addresses 0-23.
 	.long  0x08000000+.Ltic,0x40000000	# Tic to continuation
 #

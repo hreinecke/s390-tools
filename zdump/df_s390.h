@@ -105,6 +105,17 @@ struct df_s390_dumper_v2 {
 #define DF_S390_DUMPER_SIZE_V2	0x2000
 
 /*
+ * Dump tool structure (version 3)
+ */
+struct df_s390_dumper_v3 {
+	char	code[0x2ff7 - 0x8];
+	u8	force;
+	u64	mem;
+} __attribute__ ((packed));
+
+#define DF_S390_DUMPER_SIZE_V3	0x3000
+
+/*
  * Dump tool structure
  */
 struct df_s390_dumper {
@@ -113,6 +124,7 @@ struct df_s390_dumper {
 	union {
 		struct df_s390_dumper_v1	v1;
 		struct df_s390_dumper_v2	v2;
+		struct df_s390_dumper_v3	v3;
 	} d;
 } __attribute__ ((packed));
 
@@ -121,12 +133,44 @@ struct df_s390_dumper {
  */
 #define df_s390_dumper_magic(dumper) ((dumper).magic)
 #define df_s390_dumper_version(dumper) ((dumper).version)
-#define df_s390_dumper_mem(dumper) \
-	((dumper).version == 1 ? dumper.d.v1.mem : dumper.d.v2.mem)
-#define df_s390_dumper_force(dumper) \
-	((dumper).version == 1 ? dumper.d.v1.force : dumper.d.v2.force)
-#define df_s390_dumper_size(dumper) \
-	((dumper).version == 1 ? 0x1000 : 0x2000)
+static inline u64 df_s390_dumper_mem(struct df_s390_dumper *dumper)
+{
+	switch (dumper->version) {
+	case 1:
+		return dumper->d.v1.mem;
+	case 2:
+		return dumper->d.v2.mem;
+	case 3:
+	default:
+		return dumper->d.v3.mem;
+	}
+}
+
+static inline u8 df_s390_dumper_force(struct df_s390_dumper *dumper)
+{
+	switch (dumper->version) {
+	case 1:
+		return dumper->d.v1.force;
+	case 2:
+		return dumper->d.v2.force;
+	case 3:
+	default:
+		return dumper->d.v3.force;
+	}
+}
+
+static inline unsigned long df_s390_dumper_size(struct df_s390_dumper *dumper)
+{
+	switch (dumper->version) {
+	case 1:
+		return 0x1000;
+	case 2:
+		return 0x2000;
+	case 3:
+	default:
+		return 0x3000;
+	}
+}
 
 /*
  * s390 dump helpers

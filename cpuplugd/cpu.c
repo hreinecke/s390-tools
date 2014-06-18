@@ -198,7 +198,7 @@ void reactivate_cpus()
 }
 
 /*
- * In kernels > 2.6.24 cpus can be deconfigured. The follwoing functions is used
+ * In kernels > 2.6.24 cpus can be deconfigured. The following functions is used
  * to check if a certain cpus is in a deconfigured state.
  */
 int cpu_is_configured(int cpuid)

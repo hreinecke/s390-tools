@@ -1,38 +1,26 @@
-#
-# Toplevel Makefile for zfcpdump
-#
-# Copyright IBM Corp. 2003, 2006.
-# Author(s): Michael Holzheu <holzheu@de.ibm.com>
-#
+include ../common.mak
 
--include ../common.mak
--include ./config
+CPPFLAGS += -I../include
 
-ARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ -e s/arm.*/arm/ -e s/sa110/arm/)
+CPIOINIT  = $(call echocmd,"  CPIOINI ",/$@)./cpioinit
 
-all: subdirs_make
+all: $(ZFCPDUMP_PART_RD)
 
-SUB_DIRS = kernel ramdisk
+cpioinit: cpioinit.c
+zfcpdump.o: zfcpdump.h
+zfcpdump_part.o: zfcpdump.h
 
-subdirs_make:
-	/bin/sh ./get_files.sh -c; if [ "$$?" != "0" ] ; then exit ; fi; \
-	for dir in $(SUB_DIRS) ; do \
-		( cd $$dir && \
-			$(MAKE) ARCH=$(ARCH) ) \
-		|| exit $?; \
-	done
+zfcpdump_part: zfcpdump.o zfcpdump_part.o
+	$(LINK) $(LDFLAGS) $^ -static -o $@
+	$(STRIP) -s $@
+
+$(ZFCPDUMP_PART_RD): cpioinit zfcpdump_part
+	$(CPIOINIT) zfcpdump_part | gzip > $(ZFCPDUMP_PART_RD)
+
+install: all
+	$(INSTALL) -m 611 $(ZFCPDUMP_PART_RD) $(ZFCPDUMP_DIR)
 
 clean:
-	for dir in $(SUB_DIRS) ; do \
-		( cd $$dir && \
-			$(MAKE) ARCH=$(ARCH) clean ) \
-		|| exit $$?; \
-        done
- 
-install:
-	/bin/sh ./get_files.sh -c; if [ "$$?" != "0" ] ; then exit ; fi; \
-	if [ ! -d $(INSTROOT)/$(ZFCPDUMP_DIR) ]; then install -d $(INSTROOT)/$(ZFCPDUMP_DIR) -m 775; fi ; \
-	for dir in $(SUB_DIRS) ; do \
-		(cd $$dir && $(MAKE) ARCH=$(ARCH) install) \
-		|| exit $$?; \
-	done
+	rm -f *.o *~ zfcpdump_part cpioinit $(ZFCPDUMP_PART_RD)
+
+.PHONY: all clean install

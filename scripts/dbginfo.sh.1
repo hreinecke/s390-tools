@@ -1,5 +1,5 @@
-.TH DBGINFO.SH  1 "November 2012" "s390-tools"
- 
+.TH DBGINFO.SH  1 "October 2013" "s390-tools"
+
 .SH NAME
 dbginfo.sh \- collect runtime, configuration and trace information
 for debugging Linux on System z
@@ -44,35 +44,35 @@ Sample invocation:
 .P
 [root@host]# dbginfo.sh
 .br
- dbginfo.sh: Debug information script version %S390_TOOLS_VERSION%
+dbginfo.sh: Debug information script version %S390_TOOLS_VERSION%
 .br
- Copyright IBM Corp. 2002, 2012
+Copyright IBM Corp. 2002, 2013
 .PP
- Hardware platform     = s390x
+Hardware platform     = s390x
 .br
- Kernel version        = 3.0.13 (3.0.13\-0.27\-default)
+Kernel version        = <kernel\-version>
 .br
- Runtime environment   = z/VM
+Runtime environment   = z/VM
 .PP
- 1 of 7: Collecting command output
+1 of 7: Collecting command output
 .PP
- 2 of 7: Collecting z/VM command output
+2 of 7: Collecting z/VM command output
 .PP
- 3 of 7: Collecting procfs
+3 of 7: Collecting procfs
 .PP
- 4 of 7: Collecting sysfs
+4 of 7: Collecting sysfs
 .PP
- 5 of 7: Collecting log files
+5 of 7: Collecting log files
 .PP
- 6 of 7: Collecting config files
+6 of 7: Collecting config files
 .PP
- 7 of 7: Collecting osa oat output skipped
+7 of 7: Collecting osa oat output skipped \- not available
 .PP
- Finalizing: Creating archive with collected data
+Finalizing: Creating archive with collected data
 .PP
- Collected data was saved to:
+Collected data was saved to:
 .br
- >>  /tmp/DBGINFO\-2012\-10\-14\-13\-10\-42-host-123456.tgz  <<
+ >>  /tmp/DBGINFO\-2013\-10\-08\-10\-43\-16\-host\-012345.tgz  <<
 .SH HINTS
 Run the script with root authority.
 .br

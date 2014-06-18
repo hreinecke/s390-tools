@@ -6,7 +6,7 @@ all: dasdfmt
 
 dasdfmt.o: dasdfmt.h ../include/zt_common.h
 
-dasdfmt: dasdfmt.o ../libvtoc/vtoc.o
+dasdfmt: dasdfmt.o $(rootdir)/libvtoc/vtoc.o $(rootdir)/libutil/util_proc.o
 
 install: all
 	$(INSTALL) -d -m 755 $(BINDIR) $(MANDIR)/man8

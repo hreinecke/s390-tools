@@ -858,7 +858,7 @@ fdasd_verify_device (fdasd_anchor_t *anc, char *name)
  *
  * Note: 
  *  - 'version' and 'help' are priority options. 
- *       All other paramters are ignored in that case.
+ *       All other parameters are ignored in that case.
  *  - 'silent' and 'verbose' are allways allowed in any
  *       combination.
  * 
@@ -1087,7 +1087,7 @@ fdasd_list_partition_table (fdasd_anchor_t *anc)
  * get volser from vtoc
  */
 static int
-fdasd_get_volser(fdasd_anchor_t *anc, char *devname, char *volser)
+fdasd_get_volser(fdasd_anchor_t *anc, char *volser)
 {
 	volume_label_t vlabel;
 
@@ -1309,8 +1309,8 @@ static void fdasd_recreate_vtoc_unconditional(fdasd_anchor_t *anc)
 	partition_info_t *part_info = anc->first;
 	int i;
 
-	vtoc_init_format4_label(anc->f4, USABLE_PARTITIONS,
-				geo.cylinders, anc->formatted_cylinders,
+	vtoc_init_format4_label(anc->f4, geo.cylinders,
+				anc->formatted_cylinders,
 				geo.heads, geo.sectors,
 				anc->blksize, anc->dev_type);
 
@@ -1395,8 +1395,7 @@ fdasd_reuse_vtoc(fdasd_anchor_t *anc)
 
 	if (!anc->silent) printf("re-creating VTOC... ");
 
-	vtoc_init_format4_label(&f4, USABLE_PARTITIONS,
-				geo.cylinders, anc->formatted_cylinders,
+	vtoc_init_format4_label(&f4, geo.cylinders, anc->formatted_cylinders,
 				geo.heads, geo.sectors,
 				anc->blksize, anc->dev_type);
 
@@ -1421,12 +1420,10 @@ fdasd_reuse_vtoc(fdasd_anchor_t *anc)
 		}
 
 		if (anc->formatted_cylinders > LV_COMPAT_CYL)
-			vtoc_init_format8_label(anc->vlabel->volid,
-						anc->blksize,
+			vtoc_init_format8_label(anc->blksize,
 						&part_info->f1->DS1EXT1, &f1);
 		else
-			vtoc_init_format1_label(anc->vlabel->volid,
-						anc->blksize,
+			vtoc_init_format1_label(anc->blksize,
 						&part_info->f1->DS1EXT1, &f1);
 
 
@@ -1574,7 +1571,7 @@ fdasd_init_volume_label(fdasd_anchor_t *anc)
 	vtoc_volume_label_set_label(vlabel, "VOL1");
 
 	if (anc->keep_volser) {
-		if(fdasd_get_volser(anc, options.device, volser) == 0)
+		if (fdasd_get_volser(anc, volser) == 0)
 			vtoc_volume_label_set_volser(vlabel, volser);
 		else
 			fdasd_error(anc, volser_not_found, options.device);
@@ -1700,8 +1697,8 @@ fdasd_process_invalid_vtoc(fdasd_anchor_t *anc)
 	anc->formatted_cylinders = anc->hw_cylinders;
 	anc->fspace_trk = anc->formatted_cylinders * geo.heads
 		- FIRST_USABLE_TRK;
-	vtoc_init_format4_label(anc->f4, USABLE_PARTITIONS,
-				geo.cylinders, anc->formatted_cylinders,
+	vtoc_init_format4_label(anc->f4, geo.cylinders,
+				anc->formatted_cylinders,
 				geo.heads, geo.sectors,
 				anc->blksize, anc->dev_type);
 
@@ -1875,8 +1872,8 @@ fdasd_invalid_vtoc_pointer(fdasd_anchor_t *anc)
 	anc->formatted_cylinders = anc->hw_cylinders;
 	anc->fspace_trk = anc->formatted_cylinders * geo.heads
 		- FIRST_USABLE_TRK;
-	vtoc_init_format4_label(anc->f4, USABLE_PARTITIONS,
-				geo.cylinders, anc->formatted_cylinders,
+	vtoc_init_format4_label(anc->f4, geo.cylinders,
+				anc->formatted_cylinders,
 				geo.heads, geo.sectors,
 				anc->blksize, anc->dev_type);
 
@@ -1976,8 +1973,8 @@ fdasd_check_volume (fdasd_anchor_t *anc)
 
 		fdasd_init_volume_label(anc);
 
-		vtoc_init_format4_label(anc->f4, USABLE_PARTITIONS,
-					geo.cylinders, anc->formatted_cylinders,
+		vtoc_init_format4_label(anc->f4, geo.cylinders,
+					anc->formatted_cylinders,
 					geo.heads, geo.sectors,
 					anc->blksize, anc->dev_type);
 
@@ -2632,11 +2629,9 @@ fdasd_add_partition (fdasd_anchor_t *anc)
 	        return;
 
 	if (anc->formatted_cylinders > LV_COMPAT_CYL) {
-		vtoc_init_format8_label(anc->vlabel->volid, anc->blksize, &ext,
-					part_info->f1);
+		vtoc_init_format8_label(anc->blksize, &ext, part_info->f1);
 	} else
-		vtoc_init_format1_label(anc->vlabel->volid, anc->blksize, &ext,
-					 part_info->f1);
+		vtoc_init_format1_label(anc->blksize, &ext, part_info->f1);
 
 	fdasd_enqueue_new_partition(anc);
 	anc->used_partitions += 1;
@@ -2725,8 +2720,8 @@ fdasd_auto_partition(fdasd_anchor_t *anc)
 	fdasd_init_volume_label(anc);
 
 	if (anc->verbose) printf("initializing labels...\n");
-	vtoc_init_format4_label(anc->f4, USABLE_PARTITIONS,
-				geo.cylinders, anc->formatted_cylinders,
+	vtoc_init_format4_label(anc->f4, geo.cylinders,
+				anc->formatted_cylinders,
 				geo.heads, geo.sectors,
 				anc->blksize, anc->dev_type);
 
@@ -2748,11 +2743,9 @@ fdasd_auto_partition(fdasd_anchor_t *anc)
 	vtoc_set_extent(&ext, 0x01, 0x00, &llimit, &ulimit);
 
 	if (anc->formatted_cylinders > LV_COMPAT_CYL) {
-		vtoc_init_format8_label(anc->vlabel->volid, anc->blksize, &ext,
-					part_info->f1);
+		vtoc_init_format8_label(anc->blksize, &ext, part_info->f1);
 	} else
-		vtoc_init_format1_label(anc->vlabel->volid, anc->blksize, &ext,
-					part_info->f1);
+		vtoc_init_format1_label(anc->blksize, &ext, part_info->f1);
         anc->fspace_trk      = 0;
 	anc->used_partitions = 1;
 
@@ -2772,7 +2765,6 @@ fdasd_auto_partition(fdasd_anchor_t *anc)
 static void
 fdasd_auto_partition_conffile(fdasd_anchor_t *anc)
 {
-	volume_label_t *vlabel = anc->vlabel;
 	partition_info_t *part_info = anc->first;
 	cchh_t llimit,ulimit;
 	unsigned long start, stop;
@@ -2783,8 +2775,8 @@ fdasd_auto_partition_conffile(fdasd_anchor_t *anc)
 	fdasd_init_volume_label(anc);
 
 	if (anc->verbose) printf("initializing labels...\n");
-	vtoc_init_format4_label(anc->f4, USABLE_PARTITIONS,
-				geo.cylinders, anc->formatted_cylinders,
+	vtoc_init_format4_label(anc->f4, geo.cylinders,
+				anc->formatted_cylinders,
 				geo.heads, geo.sectors,
 				anc->blksize, anc->dev_type);
 
@@ -2816,11 +2808,11 @@ fdasd_auto_partition_conffile(fdasd_anchor_t *anc)
 				0x00, &llimit, &ulimit);
 
 		if (anc->formatted_cylinders > LV_COMPAT_CYL) {
-			vtoc_init_format8_label(vlabel->volid, anc->blksize,
-						&ext, part_info->f1);
+			vtoc_init_format8_label(anc->blksize, &ext,
+						part_info->f1);
 		} else
-			vtoc_init_format1_label(vlabel->volid, anc->blksize,
-						&ext, part_info->f1);
+			vtoc_init_format1_label(anc->blksize, &ext,
+						part_info->f1);
 		anc->used_partitions += 1;
 
 		get_addr_of_highest_f1_f8_label(anc, &hf1);

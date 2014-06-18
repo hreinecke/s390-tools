@@ -1,29 +1,9 @@
 #!/bin/bash
-########################################################################
-#  File...........: lsqeth
-#  Author(s)......: Steffen Thoss	<thoss@de.ibm.com>
-#  		    Peter Tiedemann	<ptiedem@de.ibm.com>
-#  Copyright IBM Corp. 2004, 2012
 #
-#  History of changes:
+# lsqeth - Tool to show information about QETH devices
 #
-#  This shell script displays all QETH devices out of the sys filesystem
-#  on one page
+# Copyright IBM Corp. 2004, 2012
 #
-#  This program is free software; you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 2, or (at your option)
-#  any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software
-#  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-########################################################################
  
 #Global variables
 script_name=${0##*/}                     # name of this script
@@ -238,7 +218,7 @@ function __print_proc_format
 
 	# print device data
 	printf '%-27s' "${format_array_print[0]}/${format_array_print[1]}/${format_array_print[2]}"
-	for j in 6 11 15 5 7 11 5 5 6 5
+	for j in 6 17 15 5 7 11 5 5 6 5
 		do
 			if [ "$countc" -eq 3 ]; then
 				printf "%-${j}s" "x${format_array_print[$countc]}"
@@ -396,8 +376,8 @@ fi
 device_list_temp="`ls $interface_dir`"
 
 if [ $format = 1 ]; then
-	echo "devices                    CHPID interface  cardtype       port chksum prio-q'ing rtr4 rtr6 lay'2 cnt"
-	echo "-------------------------- ----- ---------- -------------- ---- ------ ---------- ---- ---- ----- -----"
+	echo "devices                    CHPID interface        cardtype       port chksum prio-q'ing rtr4 rtr6 lay'2 cnt"
+	echo "-------------------------- ----- ---------------- -------------- ---- ------ ---------- ---- ---- ----- -----"
 fi
 #
 # list entries for device

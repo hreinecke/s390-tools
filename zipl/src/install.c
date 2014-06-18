@@ -70,19 +70,25 @@ get_scsi_layout(unsigned char* bootblock)
 
 #define DISK_LAYOUT_ID 0x00000001
 
+static int
+overwrite_partition_start(int fd, struct disk_info* info, int mv_dump_magic);
+
 /* Create an IPL master boot record data structure for SCSI MBRs in memory
  * at location BUFFER. TABLE contains a pointer to the program table. INFO
  * provides information about the disk. */
 static int
 update_scsi_mbr(void* bootblock, disk_blockptr_t* table,
-		struct disk_info* info)
+		struct disk_info* info, disk_blockptr_t* scsi_dump_sb_blockptr)
 {
 	struct scsi_mbr {
 		uint8_t		magic[4];
 		uint32_t	version_id;
 		uint8_t		reserved[8];
 		uint8_t		program_table_pointer[16];
+		uint8_t		reserved2[0x50];
+		struct boot_info boot_info;
 	}  __attribute__ ((packed))* mbr;
+	struct scsi_dump_param param;
 	void* buffer;
 
 	switch (get_scsi_layout(bootblock)) {
@@ -111,6 +117,13 @@ update_scsi_mbr(void* bootblock, disk_blockptr_t* table,
 	memcpy(&mbr->magic, ZIPL_MAGIC, ZIPL_MAGIC_SIZE);
 	mbr->version_id = DISK_LAYOUT_ID;
 	bootmap_store_blockptr(&mbr->program_table_pointer, table, info);
+	if (scsi_dump_sb_blockptr->linear.block != 0) {
+		/* Write dump boot_info */
+		param.block = scsi_dump_sb_blockptr->linear.block *
+			      scsi_dump_sb_blockptr->linear.size;
+		boot_get_dump_info(&mbr->boot_info, BOOT_INFO_DEV_TYPE_SCSI,
+				   &param);
+	}
 	return 0;
 }
 
@@ -120,7 +133,8 @@ update_scsi_mbr(void* bootblock, disk_blockptr_t* table,
  * to the disk block containing the program table. INFO provides
  * information about the disk type. Return 0 on success, non-zero otherwise. */
 static int
-install_scsi(int fd, disk_blockptr_t* program_table, struct disk_info* info)
+install_scsi(int fd, disk_blockptr_t* program_table, struct disk_info* info,
+	     disk_blockptr_t* scsi_dump_sb_blockptr)
 {
 	unsigned char* bootblock;
 	int rc;
@@ -140,7 +154,8 @@ install_scsi(int fd, disk_blockptr_t* program_table, struct disk_info* info)
 		return rc;
 	}
 	/* Put zIPL data into MBR */
-	rc = update_scsi_mbr(bootblock, program_table, info);
+	rc = update_scsi_mbr(bootblock, program_table, info,
+			     scsi_dump_sb_blockptr);
 	if (rc) {
 		free(bootblock);
 		return -1;
@@ -199,7 +214,7 @@ install_eckd_stage1b(int fd, disk_blockptr_t **stage1b_list,
 	memset(stage1b, 0, stage1b_size);
 	if (boot_init_eckd_stage1b(stage1b, stage2_list, stage2_count))
 		goto out_free_stage1b;
-	*stage1b_count = disk_write_block_buffer(fd, stage1b, stage1b_size,
+	*stage1b_count = disk_write_block_buffer(fd, 1, stage1b, stage1b_size,
 						 stage1b_list, info);
 	if (*stage1b_count == 0)
 		goto out_free_stage1b;
@@ -267,6 +282,7 @@ install_eckd_cdl(int fd, disk_blockptr_t *program_table,
 
 int
 install_bootloader(const char *device, disk_blockptr_t *program_table,
+		   disk_blockptr_t *scsi_dump_sb_blockptr,
 		   disk_blockptr_t *stage1b_list, blocknum_t stage1b_count,
 		   struct disk_info *info, struct job_data *job)
 {
@@ -305,7 +321,10 @@ install_bootloader(const char *device, disk_blockptr_t *program_table,
 	rc = -1;
 	switch (info->type) {
 	case disk_type_scsi:
-		rc = install_scsi(fd, program_table, info);
+		rc = install_scsi(fd, program_table, info,
+				  scsi_dump_sb_blockptr);
+		if (rc == 0 && job->id == job_dump_partition)
+			rc = overwrite_partition_start(fd, info, 0);
 		break;
 	case disk_type_fba:
 		rc = install_fba(fd, program_table, stage1b_list,
@@ -347,7 +366,7 @@ install_bootloader(const char *device, disk_blockptr_t *program_table,
 
 /* Rewind the tape device identified by FD. Return 0 on success, non-zero
  * otherwise. */
-static int
+int
 rewind_tape(int fd)
 {
 	struct mtop op;
@@ -360,7 +379,6 @@ rewind_tape(int fd)
 	else
 		return 0;
 }
-
 
 static int
 ask_for_confirmation(const char* fmt, ...)
@@ -695,7 +713,7 @@ static int install_svdump_eckd_ldl(int fd, struct disk_info *info, uint64_t mem)
 	/* Install stage 2 and stage 1b to beginning of partition */
 	if (misc_seek(fd, info->geo.start * info->phy_block_size))
 		goto out_free_stage2;
-	stage2_count = disk_write_block_buffer(fd, stage2, stage2_size,
+	stage2_count = disk_write_block_buffer(fd, 1, stage2, stage2_size,
 					       &stage2_list, info);
 	if (stage2_count == 0)
 		goto out_free_stage2_list;
@@ -728,8 +746,7 @@ out:
 }
 
 static int install_dump_eckd_cdl(int fd, struct disk_info *info, void *stage2,
-				 size_t stage2_size, int mvdump, uint64_t mem,
-				 int force)
+				 size_t stage2_size, int mvdump, int force)
 {
 	blocknum_t count, stage2_count, stage1b_count;
 	disk_blockptr_t *stage2_list, *stage1b_list;
@@ -751,7 +768,7 @@ static int install_dump_eckd_cdl(int fd, struct disk_info *info, void *stage2,
 	/* Install stage 2 */
 	if (misc_seek(fd, ECKD_CDL_DUMP_REC * info->phy_block_size))
 		goto out;
-	stage2_count = disk_write_block_buffer(fd, stage2, stage2_size,
+	stage2_count = disk_write_block_buffer(fd, 1, stage2, stage2_size,
 					       &stage2_list, info);
 	if (stage2_count == 0)
 		goto out;
@@ -792,7 +809,7 @@ install_svdump_eckd_cdl(int fd, struct disk_info *info, uint64_t mem)
 
 	if (boot_get_eckd_dump_stage2(&stage2, &stage2_size, mem))
 		return -1;
-	rc = install_dump_eckd_cdl(fd, info, stage2, stage2_size, 0, mem, 0);
+	rc = install_dump_eckd_cdl(fd, info, stage2, stage2_size, 0, 0);
 	free(stage2);
 	return rc;
 }
@@ -809,8 +826,7 @@ install_mvdump_eckd_cdl(int fd, struct disk_info *info, uint64_t mem,
 	if (boot_get_eckd_mvdump_stage2(&stage2, &stage2_size, mem,
 					force, parm))
 		return -1;
-	rc = install_dump_eckd_cdl(fd, info, stage2, stage2_size, 1, mem,
-				   force);
+	rc = install_dump_eckd_cdl(fd, info, stage2, stage2_size, 1, force);
 	free(stage2);
 	return rc;
 }
@@ -832,7 +848,7 @@ install_fba_stage1b(int fd, disk_blockptr_t **stage1b_list,
 	memset(stage1b, 0, stage1b_size);
 	if (boot_init_fba_stage1b(stage1b, stage2_list, stage2_count))
 		goto out_free_stage1b;
-	*stage1b_count = disk_write_block_buffer(fd, stage1b, stage1b_size,
+	*stage1b_count = disk_write_block_buffer(fd, 1, stage1b, stage1b_size,
 						 stage1b_list, info);
 	if (*stage1b_count == 0)
 		goto out_free_stage1b;
@@ -867,7 +883,7 @@ install_svdump_fba(int fd, struct disk_info *info, uint64_t mem)
 	blk = (info->geo.start + info->phy_blocks - blk_cnt(stage2_size, info));
 	if (misc_seek(fd, blk * info->phy_block_size))
 		goto out_free_stage2;
-	stage2_count = disk_write_block_buffer(fd, stage2, stage2_size,
+	stage2_count = disk_write_block_buffer(fd, 1, stage2, stage2_size,
 					       &stage2_list, info);
 	if (stage2_count == 0)
 		goto out_free_stage2;
@@ -927,9 +943,8 @@ install_dump(const char* device, struct job_target_data* target, uint64_t mem)
 	int fd;
 	int rc;
 
-	fd = open(device, O_RDWR);
+	fd = misc_open_exclusive(device);
 	if (fd == -1) {
-		error_reason(strerror(errno));
 		error_text("Could not open dump device '%s'", device);
 		return -1;
 	}

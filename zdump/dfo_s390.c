@@ -19,7 +19,7 @@
 /*
  * File local static data
  */
-struct {
+static struct {
 	struct df_s390_hdr	hdr;
 	struct df_s390_em	em;
 } l;
@@ -79,7 +79,7 @@ static void lc_setup(struct df_s390_hdr *dh)
 	unsigned int i = 0;
 
 	dfi_cpu_iterate(cpu) {
-		if (i > DF_S390_CPU_MAX)
+		if (i >= DF_S390_CPU_MAX)
 			ERR_EXIT("Too many CPUs in source dump (%i)", i);
 		dh->lc_vec[i] = cpu->prefix;
 		i++;

@@ -110,9 +110,9 @@ get_command_line(int argc, char* argv[], struct command_line* line)
 					  optarg);
 			break;
 		case 'D':
-			is_keyword = 1;
-			rc = store_option(&cmdline, scan_keyword_dumptofs,
-					  optarg);
+			error_reason("dumptofs has been deprecated, use "
+				     "--dump instead");
+			rc = -1;
 			break;
 		case 'M':
 			is_keyword = 1;
@@ -343,10 +343,10 @@ free_segment_data(struct job_segment_data* data)
 
 
 static void
-free_dump_fs_data(struct job_dump_fs_data* data)
+free_dump_data(struct job_dump_data* data)
 {
-	if (data->partition != NULL)
-		free(data->partition);
+	if (data->device != NULL)
+		free(data->device);
 	if (data->image != NULL)
 		free(data->image);
 	if (data->parmline != NULL)
@@ -369,9 +369,9 @@ free_menu_data(struct job_menu_data* data)
 			case job_ipl:
 				free_ipl_data(&data->entry[i].data.ipl);
 				break;
-			case job_dump_fs:
-				free_dump_fs_data(
-					&data->entry[i].data.dump_fs);
+			case job_dump_partition:
+				free_dump_data(
+					&data->entry[i].data.dump);
 				break;
 			default:
 				break;
@@ -379,14 +379,6 @@ free_menu_data(struct job_menu_data* data)
 		}
 		free(data->entry);
 	}
-}
-
-
-void
-free_dump_data(struct job_dump_data* data)
-{
-	if (data->device != NULL)
-		free(data->device);
 }
 
 
@@ -426,9 +418,6 @@ job_free(struct job_data* job)
 		break;
 	case job_mvdump:
 		free_mvdump_data(&job->data.mvdump);
-		break;
-	case job_dump_fs:
-		free_dump_fs_data(&job->data.dump_fs);
 		break;
 	case job_ipl_tape:
 		free_ipl_tape_data(&job->data.ipl_tape);
@@ -540,7 +529,7 @@ error:
 
 
 static int
-get_dump_fs_components(struct job_dump_fs_data *dump_fs,
+get_dump_components(struct job_dump_data *dump,
 		       struct component_loc **clp, int *nump)
 {
 	struct component_loc *cl;
@@ -553,19 +542,19 @@ get_dump_fs_components(struct job_dump_fs_data *dump_fs,
 		return -1;
 	/* Fill in component data */
 	num = 0;
-	rc = set_cl_element(&cl[num++], "kernel image", dump_fs->image,
-			    &dump_fs->image_addr, 0, 0x10000,
+	rc = set_cl_element(&cl[num++], "kernel image", dump->image,
+			    &dump->image_addr, 0, 0x10000,
 			    MAXIMUM_PHYSICAL_BLOCKSIZE);
 	if (rc)
 		goto error;
-	rc = set_cl_element(&cl[num++], "parmline", NULL, &dump_fs->parm_addr,
+	rc = set_cl_element(&cl[num++], "parmline", NULL, &dump->parm_addr,
 			    MAXIMUM_PARMLINE_SIZE, 0,
 			    MAXIMUM_PHYSICAL_BLOCKSIZE);
 	if (rc)
 		goto error;
-	if (dump_fs->ramdisk) {
+	if (dump->ramdisk) {
 		rc = set_cl_element(&cl[num++], "initial ramdisk",
-				    dump_fs->ramdisk, &dump_fs->ramdisk_addr,
+				    dump->ramdisk, &dump->ramdisk_addr,
 				    0, 0, 0x10000);
 		if (rc)
 			goto error;
@@ -744,13 +733,13 @@ out_free:
 
 
 static int
-finalize_dump_fs_address_data(struct job_dump_fs_data* dump_fs, char *name)
+finalize_dump_address_data(struct job_dump_data* dump, char *name)
 {
 	struct component_loc *cl;
 	int num;
 	int rc;
 
-	rc = get_dump_fs_components(dump_fs, &cl, &num);
+	rc = get_dump_components(dump, &cl, &num);
 	if (rc)
 		return rc;
 	sort_cl_array(cl, num);
@@ -870,50 +859,34 @@ check_job_dump_data(struct job_dump_data* dump, char* name)
 }
 
 
-static int
-check_job_dump_fs_data(struct job_dump_fs_data* dump_fs, char* name)
+int
+check_job_dump_images(struct job_dump_data* dump, char* name)
 {
 	int rc;
-
-	if (dump_fs->partition != NULL) {
-		rc = misc_check_writable_device(dump_fs->partition, 1, 0);
-		if (rc) {
-			if (name == NULL) {
-				error_text("Dump partition '%s'",
-					dump_fs->partition);
-			} else {
-				error_text("Dump partition '%s' in "
-					"section '%s'", dump_fs->partition,
-					name);
-			}
-			return rc;
-		}
-	}
-
 	/* Add data needed to convert fs dump job to IPL job */
-	rc = misc_check_readable_file(FSDUMP_IMAGE);
+	rc = misc_check_readable_file(FSDUMP_PART_IMAGE);
 	if (rc) {
-		error_text("Need external file '%s' for file system dump",
-			   FSDUMP_IMAGE);
+		error_text("Need external file '%s' for partition dump",
+			   FSDUMP_PART_IMAGE);
 		return rc;
 	}
-	dump_fs->image = misc_strdup(FSDUMP_IMAGE);
-	if (dump_fs->image == NULL)
+	dump->image = misc_strdup(FSDUMP_PART_IMAGE);
+	if (dump->image == NULL)
 		return -1;
-	dump_fs->image_addr = DEFAULT_IMAGE_ADDRESS;
+	dump->image_addr = DEFAULT_IMAGE_ADDRESS;
 
 	/* Ramdisk is no longer required with new initramfs dump system */
-	if (misc_check_readable_file(FSDUMP_RAMDISK))
-		dump_fs->ramdisk = NULL;
+	if (misc_check_readable_file(FSDUMP_PART_RAMDISK))
+		dump->ramdisk = NULL;
 	else {
-		dump_fs->ramdisk = misc_strdup(FSDUMP_RAMDISK);
-		if (dump_fs->ramdisk == NULL)
+		dump->ramdisk = misc_strdup(FSDUMP_PART_RAMDISK);
+		if (dump->ramdisk == NULL)
 			return -1;
-		dump_fs->ramdisk_addr = UNSPECIFIED_ADDRESS;
+		dump->ramdisk_addr = UNSPECIFIED_ADDRESS;
 	}
 
-	dump_fs->parm_addr = UNSPECIFIED_ADDRESS;
-	return finalize_dump_fs_address_data(dump_fs, name);
+	dump->parm_addr = UNSPECIFIED_ADDRESS;
+	return finalize_dump_address_data(dump, name);
 }
 
 
@@ -928,13 +901,6 @@ check_job_menu_data(struct job_menu_data* menu)
 		case job_ipl:
 			rc = check_job_ipl_data(&menu->entry[i].data.ipl,
 						menu->entry[i].name);
-			if (rc)
-				return rc;
-			break;
-		case job_dump_fs:
-			rc = check_job_dump_fs_data(
-					&menu->entry[i].data.dump_fs,
-					menu->entry[i].name);
 			if (rc)
 				return rc;
 			break;
@@ -1095,9 +1061,6 @@ check_job_data(struct job_data* job)
 		break;
 	case job_dump_partition:
 		rc = check_job_dump_data(&job->data.dump, job->name);
-		break;
-	case job_dump_fs:
-		rc = check_job_dump_fs_data(&job->data.dump_fs, job->name);
 		break;
 	case job_ipl_tape:
 		rc = check_job_ipl_tape_data(&job->data.ipl_tape, job->name);
@@ -1441,45 +1404,13 @@ get_job_from_section_data(char* data[], struct job_data* job, char* section)
 			job->data.dump.mem =
 				(job->data.dump.mem + MEGABYTE_MASK) &
 					~MEGABYTE_MASK;
-			printf("Setting dump size limit to %lldMB\n",
+			printf("Found specification of dump size limit "
+			       "to %lldMB\n",
 			       (unsigned long long) job->data.dump.mem /
 			       		(1024LL * 1024LL));
 		}
 		else
 			job->data.dump.mem = -1LL;
-		break;
-	case section_dumpfs:
-		/* DUMP TO FILESYSTEM job */
-		job->id = job_dump_fs;
-		/* Fill in name of bootmap directory */
-		job->target.bootmap_dir =
-			misc_strdup(data[(int) scan_keyword_target]);
-		if (job->target.bootmap_dir == NULL)
-			return -1;
-		/* Fill in partition name */
-		job->data.dump_fs.partition =
-			misc_strdup(data[(int) scan_keyword_dumptofs]);
-		if (job->data.dump_fs.partition == NULL)
-			return -1;
-		/* Check for mem size specification */
-		if (extract_memsize(job->data.dump_fs.partition,
-				    &job->data.dump_fs.mem) == 0) {
-			/* Ensure megabyte alignment of size */
-			job->data.dump_fs.mem =
-				(job->data.dump_fs.mem + MEGABYTE_MASK) &
-					~MEGABYTE_MASK;
-			printf("Setting dump size limit to %lldMB\n",
-			       (unsigned long long) job->data.dump_fs.mem /
-			       		(1024LL * 1024LL));
-		} else
-			job->data.dump_fs.mem = -1LL;
-		/* Fill in parmline */
-		rc = get_parmline(data[(int) scan_keyword_parmfile],
-				  data[(int) scan_keyword_parameters],
-				  &job->data.dump_fs.parmline,
-				  &job->data.dump_fs.parm_addr, section);
-		if (rc)
-			return rc;
 		break;
 	case section_mvdump:
 		/* DUMP TO MULTI-VOLUME job */
@@ -1496,7 +1427,8 @@ get_job_from_section_data(char* data[], struct job_data* job, char* section)
 			job->data.mvdump.mem =
 				(job->data.mvdump.mem + MEGABYTE_MASK) &
 					~MEGABYTE_MASK;
-			printf("Setting dump size limit to %lldMB\n",
+			printf("Found specification of dump size limit "
+			       "to %lldMB\n",
 			       (unsigned long long) job->data.mvdump.mem /
 			       		(1024LL * 1024LL));
 		} else
@@ -1664,13 +1596,6 @@ get_menu_job(struct scan_token* scan, char* menu, struct job_data* job)
 				memset((void *) &temp_job->data.ipl, 0,
 				       sizeof(struct job_ipl_data));
 				break;
-			case job_dump_fs:
-				job->data.menu.entry[current].id = job_dump_fs;
-				job->data.menu.entry[current].data.dump_fs =
-					temp_job->data.dump_fs;
-				memset((void *) &temp_job->data.dump_fs, 0,
-				       sizeof(struct job_dump_fs_data));
-				break;
 			default:
 				error_reason("Section '%s' cannot be included "
 					     "in menu '%s'", section, menu);
@@ -1778,19 +1703,6 @@ get_section_job(struct scan_token* scan, char* section, struct job_data* job,
 				free(job->data.ipl.parmline);
 			}
 			job->data.ipl.parmline = buffer;
-			if (buffer == NULL)
-				return -1;
-			break;
-		case job_dump_fs:
-			if (job->data.dump_fs.parmline == NULL)
-				buffer = misc_strdup(extra_parmline);
-			else {
-				buffer = append_parmline(
-					job->data.dump_fs.parmline,
-					extra_parmline);
-				free(job->data.dump_fs.parmline);
-			}
-			job->data.dump_fs.parmline = buffer;
 			if (buffer == NULL)
 				return -1;
 			break;

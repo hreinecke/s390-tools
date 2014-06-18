@@ -5,8 +5,8 @@
  * Author(s): Michael Holzheu <holzheu@linux.vnet.ibm.com>
  */
 
-#ifndef __ERROR_H__
-#define __ERROR_H__
+#ifndef ERROR_H
+#define ERROR_H
 
 /************************************************************************
  * zipl boot loader error codes (use decimal range 4500-4549)
@@ -25,6 +25,9 @@
 
 /* Internal error: The IPL type is incorrect */
 #define EWRONGTYPE		0x00004510
+
+/* Internal error */
+#define EINTERNAL		0x00004511
 
 /* kdump: No operating system information was found */
 #define EOS_INFO_MISSING	0x00004520
@@ -45,19 +48,21 @@
  * The following codes are not ABI
  ************************************************************************/
 
+#define ETIMEOUT       2
+
 /*
  * Stand-alone dump
  */
 #define OK		0x00000000  /* Dump completed successfully */
 #define EMEM		0x00004600  /* Device too small for dump */
-#define EDEV_INVAL	0x00004601  /* Device not supported */
-#define EMEMCOUNT	0x00004602  /* Mem counting did not work */
+#define EDEVNOTSUP	0x00004601  /* Device not supported */
+#define EMEMCOUNT	0x00004602  /* Could not evaluate memory layout */
 
 /*
  * Multi-volume dump
  */
-#define ENODEV		0x00004603  /* The devno does not exist */
+#define ENODEVNO	0x00004603  /* The devno does not exist */
 #define ENOSIGN		0x00004604  /* No valid dump signature on device */
 #define ENOTIME		0x00004605  /* The zipl time stamps do not match */
 
-#endif /* __ERROR_H__ */
+#endif /* ERROR_H */

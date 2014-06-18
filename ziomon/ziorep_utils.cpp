@@ -509,7 +509,7 @@ int parse_topline_arg(char *str, __u64 *arg)
 	*arg = strtoull(str, &p, 0);
 	if (*arg == ULLONG_MAX) {
 		fprintf(stderr, "%s: Cannot convert"
-			" %s, over/underflow occured. Try a smaller/larger"
+			" %s, over/underflow occurred. Try a smaller/larger"
 			" value.\n", toolname, str);
 		return -1;
 	}

@@ -274,7 +274,7 @@ static void l_event_loop(void)
 /*
  * Clear terminal and write new window content to it
  */
-void l_update_term_curses(void)
+static void l_update_term_curses(void)
 {
 	/* Init screen */
 	l_term_size_get();
@@ -290,7 +290,7 @@ void l_update_term_curses(void)
 /*
  * Write window content in line mode
  */
-void l_update_term_batch(void)
+static void l_update_term_batch(void)
 {
 	g.w.cur->update_term(g.w.cur);
 	printf("\n");

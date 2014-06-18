@@ -13,6 +13,7 @@
 #include "helper.h"
 #include "hyptop.h"
 #include "getopt.h"
+#include "opts.h"
 #include "sd.h"
 
 static const char l_copyright_str[] = "Copyright IBM Corp. 2010";
@@ -104,7 +105,7 @@ static void l_delay_set(char *delay_string)
 }
 
 /*
- * Get number of occurances of character 'c' in "str"
+ * Get number of occurrences of character 'c' in "str"
  */
 static int l_get_char_cnt(char *str, char c)
 {
@@ -300,7 +301,7 @@ void opts_parse(int argc, char *argv[])
 		{ "fields",      required_argument, NULL, 'f'},
 		{ "sort_field",  required_argument, NULL, 'S'},
 		{ "cpu_types",   required_argument, NULL, 't'},
-		{ 0,             0,                 0,    0  }
+		{ NULL,          0,                 NULL, 0  }
 	};
 	static const char option_string[] = "vhbd:w:s:n:f:t:S:";
 

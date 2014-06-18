@@ -1,11 +1,8 @@
 #!/bin/bash
 #
+# dasdstat - Tool to print DASD statistics data as formatted table
+#
 # Copyright IBM Corp. 2011
-#
-# dasdstat
-# Reads dasd statistics data from debugfs and prints it as formatted table
-#
-# Author(s): Stefan Weinhuber <wein@de.ibm.com>
 #
 
 function print_usage() {

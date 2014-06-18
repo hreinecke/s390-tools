@@ -1,41 +1,21 @@
 #!/bin/bash
-########################################################################
-#  File...........: qethconf      
-#  Author(s)......: Thomas Weber 	<tweber@de.ibm.com>
-#		    Steffen Thoss	<thoss@de.ibm.com>
-#		    Peter Tiedemann	<ptiedem@de.ibm.com>
-#  Copyright IBM Corp. 2002, 2011
-# 
-#  History of changes:
-#  - add kernel 2.6 support
-#  - remove kernel 2.4 support
-# 
-#  This shell script simplifies the usage of the OSA-Express functions    
 #
-#  - IP address takeover (IPA)                                 
-#  - Proxy ARP                                                       
-#  - Virtual IP address (VIPA)                           
+# qethconf - Tool to configure IPA, VIPA, and Proxy ARP for OSA-Express cards
 #
-#  IP addresses in IPv4 or IPv6 format must be no longer specified in
-#  hexadecimal format. The script compounds the commands for the functions
-#  according to the given parameters and sends it to the appropriate
-#  OSA-Express device driver /proc file.   
-# 
-#  This program is free software; you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 2, or (at your option)
-#  any later version.
-# 
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-# 
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software
-#  Foundation, Inc., 51 Franklin St., Fifth Floor, Boston, MA 02110-1301, USA.
-########################################################################
- 
+# This shell script simplifies the usage of the OSA-Express functions
+#
+#  - IP address takeover (IPA)
+#  - Proxy ARP
+#  - Virtual IP address (VIPA)
+#
+# IP addresses in IPv4 or IPv6 format must be no longer specified in
+# hexadecimal format. The script compounds the commands for the functions
+# according to the given parameters and sends it to the appropriate
+# OSA-Express device driver /proc file.
+#
+# Copyright IBM Corp. 2003, 2011
+#
+
 script_name=${0##*/}                     # name of this script
 vipa_ext="_vipa"                         # command extension for VIPA
 parp_ext="_rxip"                         # command extension for Proxy ARP

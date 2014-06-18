@@ -22,10 +22,9 @@ enum job_id {
 	job_ipl = 3,
 	job_segment = 4,
 	job_dump_partition = 5,
-	job_dump_fs = 6,
-	job_menu = 7,
-	job_ipl_tape = 8,
-	job_mvdump = 9,
+	job_menu = 6,
+	job_ipl_tape = 7,
+	job_mvdump = 8,
 };
 
 struct job_target_data {
@@ -56,6 +55,12 @@ struct job_segment_data {
 
 struct job_dump_data {
 	char* device;
+	char* image;
+	char* parmline;
+	char* ramdisk;
+	address_t image_addr;
+	address_t parm_addr;
+	address_t ramdisk_addr;
 	uint64_t mem;
 };
 
@@ -65,17 +70,6 @@ struct job_mvdump_data {
 	char* device[MAX_DUMP_VOLUMES];
 	uint64_t mem;
 	uint8_t force;
-};
-
-struct job_dump_fs_data {
-	char* partition;
-	char* image;
-	char* parmline;
-	char* ramdisk;
-	address_t image_addr;
-	address_t parm_addr;
-	address_t ramdisk_addr;
-	uint64_t mem;
 };
 
 struct job_ipl_tape_data {
@@ -91,7 +85,7 @@ struct job_ipl_tape_data {
 
 union job_menu_entry_data {
 	struct job_ipl_data ipl;
-	struct job_dump_fs_data dump_fs;
+	struct job_dump_data dump;
 };
 
 struct job_menu_entry {
@@ -118,7 +112,6 @@ struct job_data {
 		struct job_menu_data menu;
 		struct job_segment_data segment;
 		struct job_dump_data dump;
-		struct job_dump_fs_data dump_fs;
 		struct job_ipl_tape_data ipl_tape;
 		struct job_mvdump_data mvdump;
 	} data;
@@ -133,5 +126,6 @@ struct job_data {
 int job_get(int argc, char* argv[], struct job_data** data);
 void job_free(struct job_data* job);
 int type_from_target(char *target, disk_type_t *type);
+int check_job_dump_images(struct job_dump_data* dump, char* name);
 
 #endif /* not JOB_H */

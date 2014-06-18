@@ -365,7 +365,7 @@ sub auth_list($$)
 
 # get_auditlog_file() - Set file path for session transcript
 #
-# Return false if an error has occured; otherwise true.
+# Return false if an error has occurred; otherwise true.
 #
 # $filepath:	Scalar reference to file path variable
 # $guest:	Name of the virtual guest machine

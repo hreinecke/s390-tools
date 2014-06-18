@@ -261,6 +261,18 @@ static void strip_cperr(char *buf)
 	}
 }
 
+/*
+ * Handle CP error message and exit
+ */
+static void cperr_exit(char *cpcmd, int cprc, char *buf)
+{
+	if (strlen(buf) <= CP_PREFIX_LEN)
+		ERR_EXIT("CP command '%s' failed with rc=%i\n", cpcmd, cprc);
+
+	strip_cperr(buf);
+	ERR_EXIT("%s\n", buf);
+}
+
 static void _cpcmd(char *cpcmd, char **resp, int *rc, int retry, int upper)
 {
 	int fd, len, cprc, bufsize = VMCP_BUFSIZE;
@@ -310,8 +322,7 @@ static void _cpcmd(char *cpcmd, char **resp, int *rc, int retry, int upper)
 	if (rc == NULL) {
 		if (cprc != 0) {
 			/* caller wants us to handle the error */
-			strip_cperr(buf);
-			ERR_EXIT("%s\n", buf);
+			cperr_exit(cmd, cprc, buf);
 		}
 	} else {
 		*rc = cprc;

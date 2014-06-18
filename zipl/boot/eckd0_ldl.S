@@ -6,7 +6,7 @@
 #            Michael Holzheu (holzheu@linux.vnet.ibm.com)
 #
 # Startup for IPL at address 0
-# Second stage boot loader is loaded to 0x2000 and starts at 0x2008
+# Second stage boot loader is loaded to 0x2000 and starts at 0x2018
 #
 # The first 24 bytes are loaded by IPL to addresses 0-23 (PSW and two CCWs).
 # The 1st CCW rewinds to record zero (read record zero)
@@ -16,6 +16,6 @@
 	.org   0x0
 	.globl _start
 _start:
-	.long  0x00080000,0x80002008 # PSW :the first 24 byte are loaded by IPL
+	.long  0x00080000,0x80002018 # PSW :the first 24 byte are loaded by IPL
 	.long  0x16002000,0x60000016 # Read record zero
 	.long  0x06000000,0x60000080 # Read IPL record 1 again

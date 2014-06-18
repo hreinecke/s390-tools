@@ -23,7 +23,7 @@
 
 /**
  * Library to access the data files.
- * Does not perform any endianess conversions.
+ * Does not perform any endianness conversions.
  * Assumes that messages are provided in BE.
  */
 

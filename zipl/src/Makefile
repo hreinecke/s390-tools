@@ -3,11 +3,17 @@ include ../../common.mak
 
 CPPFLAGS += -I../include -I../boot -I../../include \
 	    -DZFCPDUMP_DIR=$(ZFCPDUMP_DIR) \
-	    -DZFCPDUMP_IMAGE=$(ZFCPDUMP_IMAGE) -DZFCPDUMP_RD=$(ZFCPDUMP_RD) \
+	    -DZFCPDUMP_FS_IMAGE=$(ZFCPDUMP_FS_IMAGE) \
+	    -DZFCPDUMP_FS_RD=$(ZFCPDUMP_FS_RD) \
+	    -DZFCPDUMP_PART_IMAGE=$(ZFCPDUMP_PART_IMAGE) \
+	    -DZFCPDUMP_PART_RD=$(ZFCPDUMP_PART_RD) \
 	    -D_FILE_OFFSET_BITS=64
 LDFLAGS += -Wl,-z,noexecstack
-objects = misc.o proc.o error.o scan.o job.o boot.o bootmap.o disk.o \
-	  install.o zipl.o ../boot/data.o
+
+objects = misc.o error.o scan.o job.o boot.o bootmap.o disk.o \
+	  install.o zipl.o $(rootdir)/zipl/boot/data.o \
+	  $(rootdir)/libutil/util_part.o $(rootdir)/libutil/util_proc.o
+
 includes = $(wildcard ../include/*.h)
 zipl_helpers = $(wildcard zipl_helper.*)
 chreipl_helpers = $(subst zipl_,chreipl_, $(zipl_helpers))
@@ -33,5 +39,13 @@ clean:
 .PHONY: all install clean
 
 # Additional manual dependencies
+boot.o: ../boot/data.h
 
-boot.o: ../boot/data.o ../boot/data.h
+../boot/data.h:
+	make -C ../boot data.h
+
+../boot/data.o:
+	make -C ../boot data.o
+
+../../libutil/util_part.o:
+	make -C ../../libutil util_part.o

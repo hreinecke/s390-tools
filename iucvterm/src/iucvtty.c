@@ -65,11 +65,10 @@ static int exec_login_prog(char *cmd[])
  * @client:	Client file descriptor
  * @master:	PTY master file descriptor
  * @slave:	PTY slave file descriptor
- * @host:	Originator z/VM guest virtual machine
  * @cfg:	IUCV TTY configuration structure.
  */
 static int iucvtty_worker(int client, int master, int slave,
-			  const char *host, const struct iucvterm_cfg *cfg)
+			  const struct iucvterm_cfg *cfg)
 {
 	int rc;
 	struct iucvtty_msg *msg;
@@ -273,7 +272,7 @@ int main(int argc, char *argv[])
 		}
 
 		/* handle client terminal connection */
-		rc = iucvtty_worker(client, master, slave, client_host, &conf);
+		rc = iucvtty_worker(client, master, slave, &conf);
 	}
 
 	close(client);

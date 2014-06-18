@@ -5,14 +5,14 @@
 # Required-Stop: $local_fs
 # Should-Start:
 # Should-Stop:
-# Default-Start: 0 1 2 3 4 5 6
+# Default-Start: 0 1 2 3 5 6
 # Default-Stop:
 # Short-Description: Configure s390 dump feature
 # Description: Configures the s390 dump feature. It uses the configuration file
 #              /etc/sysconfig/dumpconf
 ### END INIT INFO
 
-# chkconfig: 0123456 01 99
+# chkconfig: 012356 01 99
 
 # source function library
 if [ -r /lib/lsb/init-functions ]; then

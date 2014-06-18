@@ -7,6 +7,7 @@
  * Author(s): Carsten Otte <cotte@de.ibm.com>
  *            Peter Oberparleiter <Peter.Oberparleiter@de.ibm.com>
  */
+#define _GNU_SOURCE /* for asprintf */
 
 #include "misc.h"
 
@@ -18,6 +19,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "error.h"
 
@@ -35,6 +37,21 @@ misc_malloc(size_t size)
 			     (unsigned long long) size);
 	}
 	return result;
+}
+
+
+/* asprintf with misc error checking */
+int misc_asprintf(char** out, const char* fmt, ...)
+{
+	va_list ap;
+	int rc;
+
+	va_start(ap, fmt);
+	rc = vasprintf(out, fmt, ap);
+	va_end(ap);
+	if (rc == -1)
+		error_reason("Could not allocate space for new string");
+	return rc;
 }
 
 
@@ -68,6 +85,21 @@ misc_strdup(const char* s)
 			     (unsigned long long) strlen(s) + 1);
 	}
 	return result;
+}
+
+
+/* Open file exclusive */
+int
+misc_open_exclusive(const char* filename)
+{
+	int fd;
+
+	fd = open(filename, O_RDWR | O_EXCL);
+	if (fd == -1 && errno == EBUSY)
+		error_reason("Device is in use (probably mounted)");
+	else if (fd == -1)
+		error_reason(strerror(errno));
+	return fd;
 }
 
 

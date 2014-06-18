@@ -6,8 +6,8 @@
 # Author(s): Michael Holzheu (holzheu@linux.vnet.ibm.com)
 #
 # Stage 1b is loaded to 0xe000-0xe400 and is used to load stage 2 with
-# locate record/read CCWs. Currently stage 1b can load up to 16
-# blocks and therefore 8 KiB stage 2 code with 512 byte block size.
+# locate record/read CCWs. Currently stage 1b can load up to 24
+# blocks and therefore 12 KiB stage 2 code with 512 byte block size.
 #
 	.org   0x0
 	.globl _start
@@ -43,6 +43,22 @@ _start:
 	.long  0x43000000+.Llo14,0x40000008 # locate record 14
 	.long  0x42000000,0x60000200        # read
 	.long  0x43000000+.Llo15,0x40000008 # locate record 15
+	.long  0x42000000,0x60000200        # read
+	.long  0x43000000+.Llo16,0x40000008 # locate record 16
+	.long  0x42000000,0x60000200        # read
+	.long  0x43000000+.Llo17,0x40000008 # locate record 17
+	.long  0x42000000,0x60000200        # read
+	.long  0x43000000+.Llo18,0x40000008 # locate record 18
+	.long  0x42000000,0x60000200        # read
+	.long  0x43000000+.Llo19,0x40000008 # locate record 19
+	.long  0x42000000,0x60000200        # read
+	.long  0x43000000+.Llo20,0x40000008 # locate record 20
+	.long  0x42000000,0x60000200        # read
+	.long  0x43000000+.Llo21,0x40000008 # locate record 21
+	.long  0x42000000,0x60000200        # read
+	.long  0x43000000+.Llo22,0x40000008 # locate record 22
+	.long  0x42000000,0x60000200        # read
+	.long  0x43000000+.Llo23,0x40000008 # locate record 23
 	.long  0x42000000,0x20000200        # read
 # offset 2 in .Llo[0-15]: block count (unsigned short) = 1
 # offset 4 in .Llo[0-15]: block number (unsigned long)
@@ -62,5 +78,13 @@ _start:
 .Llo13:	.long  0x06000001,0x00000000
 .Llo14:	.long  0x06000001,0x00000000
 .Llo15:	.long  0x06000001,0x00000000
+.Llo16:	.long  0x06000001,0x00000000
+.Llo17:	.long  0x06000001,0x00000000
+.Llo18:	.long  0x06000001,0x00000000
+.Llo19:	.long  0x06000001,0x00000000
+.Llo20:	.long  0x06000001,0x00000000
+.Llo21:	.long  0x06000001,0x00000000
+.Llo22:	.long  0x06000001,0x00000000
+.Llo23:	.long  0x06000001,0x00000000
 .org 1024 # Stage 1b should have 1024 byte
 .Lend:

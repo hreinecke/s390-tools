@@ -379,5 +379,5 @@ void hyptop_helper_init(void)
 {
 	l_iconv_ebcdic_ascii = iconv_open("ISO-8859-1", "EBCDIC-US");
 	if (l_iconv_ebcdic_ascii == (iconv_t) -1)
-		ERR_EXIT("Could not initilize iconv\n");
+		ERR_EXIT("Could not initialize iconv\n");
 }

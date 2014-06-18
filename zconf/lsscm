@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# lsscsm - Tool to show information about Storage Class Memory Increments
+#
+# Copyright IBM Corp. 2012
+#
 
 CMD=${0##*/}
 VERSION="%S390_TOOLS_VERSION%"

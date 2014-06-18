@@ -105,7 +105,8 @@ static void table_read(struct zg_fh *fh, u16 blk_size,
 {
 	int off;
 
-	off = DF_S390_MAGIC_BLK_ECKD * blk_size + df_s390_dumper_size(l.dumper);
+	off = DF_S390_MAGIC_BLK_ECKD * blk_size +
+		df_s390_dumper_size(&l.dumper);
 	zg_seek(fh, off, ZG_CHECK);
 	zg_read(fh, table, sizeof(*table), ZG_CHECK);
 }
@@ -206,7 +207,7 @@ static void check_vol_table(struct vol *vol)
  * device node might still have old data in its buffers. Flush buffers
  * to keep things in sync.
  */
-void vol_read(struct vol *vol)
+static void vol_read(struct vol *vol)
 {
 	zg_ioctl(vol->fh, BLKFLSBUF, NULL, "BLKFLSBUF", ZG_CHECK);
 	df_s390_dumper_read(vol->fh, vol->blk_size, &vol->dumper);
@@ -228,7 +229,7 @@ static void df_s390mv_mem_read(struct dfi_mem_chunk *mem_chunk, u64 off,
 }
 
 /*
- * Initilize DASD volume
+ * Initialize DASD volume
  */
 static void vol_init(struct vol *vol, struct vol_parm *vol_parm, u64 *mem_off)
 {
@@ -522,10 +523,8 @@ int dt_s390mv_init(void)
 	volumes_init();
 	dt_arch_set(DFI_ARCH_64);
 	dt_version_set(df_s390_dumper_version(l.dumper));
-	if (df_s390_dumper_mem(l.dumper) != U64_MAX)
-		dt_attr_mem_limit_set(df_s390_dumper_mem(l.dumper));
-
-	dt_attr_force_set(df_s390_dumper_force(l.dumper));
+	dt_attr_mem_limit_set(df_s390_dumper_mem(&l.dumper));
+	dt_attr_force_set(df_s390_dumper_force(&l.dumper));
 	return 0;
 }
 

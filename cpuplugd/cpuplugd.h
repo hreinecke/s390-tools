@@ -20,6 +20,7 @@
 #include <ctype.h>
 #include <syslog.h>
 #include <setjmp.h>
+#include "zt_common.h"
 
 #define NAME		"cpuplugd"
 #define MAX_CPU		64 /* max amount of possible cpus */

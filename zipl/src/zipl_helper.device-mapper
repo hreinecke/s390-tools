@@ -9,17 +9,18 @@
 # Depending on the name by which the script is called, it serves one of two
 # purposes:
 #
-# 1. Usage: zipl_helper.device-mapper <target directory>
+# 1. Usage: zipl_helper.device-mapper <target directory> or
+#                                     <major:minor of target device>
 #
-# This tool attempts to obtain zipl parameters for a target directory located
-# on a device-mapper device. It assumes that the device-mapper table for this
-# device conforms to the following rules:
+# This tool attempts to obtain zipl parameters for a target directory or
+# partition located on a device-mapper device. It assumes that the
+# device-mapper table for this device conforms to the following rules:
 # - directory is located on a device consisting of a single device-mapper
 #   target
 # - only linear, mirror and multipath targets are supported
 # - supported physical device types are DASD and SCSI devices
 # - all of the device which contains the directory must be located on a single
-#   physical device (which may be mirrorred or accessed through a multipath
+#   physical device (which may be mirrored or accessed through a multipath
 #   target)
 # - any mirror in the device-mapper setup must include block 0 of the
 #   physical device
@@ -133,15 +134,24 @@ if ($toolname eq "chreipl_helper.device-mapper") {
 
 $directory = $ARGV[0];
 if (!defined($directory)) {
-	die("Usage: $toolname <target directory>\n");
+	die("Usage: $toolname <target directory> or <major:minor of target devies>\n");
 }
 
 # check if needed tools are available
 check_tools();
 
-# Determine physical (non-dm) device on which directory is located
-($phy_major, $phy_minor, $phy_offset, @target_list) =
-	get_physical_device_dir($directory);
+if (($ARGV[0] =~ /^\s*(\d+)\s*:\s*(\d+)\s*$/)) {
+    	# Determine physical (non-dm) device on which partition is located
+	($phy_major, $phy_minor, $phy_offset, @target_list) =
+		get_physical_device($1,$2);
+}
+else
+{
+	# Determine physical (non-dm) device on which directory is located
+	($phy_major, $phy_minor, $phy_offset, @target_list) =
+		get_physical_device_dir($directory);
+}
+
 # Determine type and characteristics of physical device
 ($phy_type, $phy_blocksize, $phy_geometry, $phy_bootsectors, $phy_partstart) =
 	get_device_characteristics($phy_major, $phy_minor);

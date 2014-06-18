@@ -126,6 +126,18 @@ do { \
 #define ARRAY_ELEMENT_CNT(x) (sizeof(x) / sizeof(x[0]))
 #define ROUNDUP(x, y)	((((x) + ((y) - 1)) / (y)) * (y))
 
+static inline u32 zg_csum_partial(const void *buf, int len, u32 sum)
+{
+	register unsigned long reg2 asm("2") = (unsigned long) buf;
+	register unsigned long reg3 asm("3") = (unsigned long) len;
+
+	asm volatile(
+		"0:     cksm    %0,%1\n"        /* do checksum on longs */
+		"       jo      0b\n"
+		: "+d" (sum), "+d" (reg2), "+d" (reg3) : : "cc", "memory");
+	return sum;
+}
+
 /*
  * Pointer atrithmetic
  */

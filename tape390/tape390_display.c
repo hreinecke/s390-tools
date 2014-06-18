@@ -59,7 +59,7 @@ typedef struct display_struct {
 } __attribute__ ((packed))      display_struct;
 
 /*  definitions  */
-char *help_text= \
+static char *help_text =
 	"tape390_display: display one or two 8-byte messages on the display"
 	"unit of a tape drive\n"
 	"\n"
@@ -95,11 +95,11 @@ char *help_text= \
 	"are supported\n"
 	"for 3490 are '@$#,./()*&+-=%|:_<>?;'.\n";
 
-int	quiet = 0;
+static int quiet;
 
 /* end of definitions */
 
-int typename2int(char *name)
+static int typename2int(char *name)
 {
 	char *typenames[] = {
 		"standard",
@@ -125,8 +125,8 @@ int typename2int(char *name)
 	return -1;
 }
 
-void
-strchkcpy(char *tgt, const char *src) {
+static void strchkcpy(char *tgt, const char *src)
+{
 	static	char *nowarn = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 			       "@$#,./'()*&+-=%:_<>?; ";
 	char	c;
@@ -135,7 +135,7 @@ strchkcpy(char *tgt, const char *src) {
 	warned = 0;
 	for(c=0; c<8 && *(src+c); c++) {
 		*(tgt+c) = toupper(*(src+c));
-		if(index(nowarn, *(tgt+c)) == 0 && !quiet && !warned) {
+		if (index(nowarn, *(tgt+c)) == NULL && !quiet && !warned) {
 			fprintf(
 				stderr,
 				"WARNING: Some special characters may not "

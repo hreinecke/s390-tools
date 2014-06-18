@@ -5,14 +5,14 @@
 # Required-Stop: $local_fs $remote_fs
 # Should-Start: 
 # Should-Stop: 
-# Default-Start: 2 3 4 5
+# Default-Start: 2 3 5
 # Default-Stop: 0 1 6
 # Short-Description: Start the cpu hotplug daemon for Linux on System z
 # Description: Starts the cpuplugd. It uses the configuration
 #              file /etc/sysconfig/cpuplugd
 ### END INIT INFO
 
-# chkconfig: 2345 01 99
+# chkconfig: 235 01 99
 
 DAEMON=cpuplugd
 DAEMON_PATH=/usr/sbin/cpuplugd

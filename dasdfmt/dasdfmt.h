@@ -2,7 +2,7 @@
  * File...........: s390-tools/dasdfmt/dasdfmt.h
  * Author(s)......: Horst Hummel <Horst.Hummel@de.ibm.com>
  *                  Volker Sameske <sameske@de.ibm.com>
- * Copyright IBM Corp. 2002,2007
+ * Copyright IBM Corp. 2002, 2013
  */
 
 #ifndef DASDFMT_H
@@ -227,7 +227,6 @@ static struct option dasdfmt_getopt_long_options[]=
         { "hashmarks",   1, 0, 'm'},
 	{ "percentage",  0, 0, 'P'},
         { "label",       1, 0, 'l'},
-        { "devno",       1, 0, 'n'},
         { "device",      1, 0, 'f'},
         { "blocksize",   1, 0, 'b'},
 	{ "requestsize", 1, 0, 'r'},
@@ -264,7 +263,6 @@ typedef struct dasdfmt_info {
         int   blksize_specified;
 	int   reqsize_specified;
         int   node_specified;
-        int   devno_specified;
         int   device_id;
         int   keep_volser;
 } dasdfmt_info_t;

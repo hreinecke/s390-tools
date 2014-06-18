@@ -7,7 +7,7 @@ dasdfmt \- formatting of DASD (ECKD) disk drives.
 .br
         [-r \fIcylinder\fR] [-b \fIblksize\fR] [-l \fIvolser\fR] [-d \fIlayout\fR]
 .br
-        [-L] [-V] [-F] [-k] {-n \fIdevno\fR | -f \fInode\fR} \fIdevice\fR
+        [-L] [-V] [-F] [-k] \fIdevice\fR
 
 .SH DESCRIPTION
 \fBdasdfmt\fR formats a DASD (ECKD) disk drive to prepare it
@@ -158,61 +158,11 @@ be overwritten.
 .br
  
 .TP
-\fB-n\fR \fIdevno\fR or \fB--devno=\fR\fIdevno\fR
-Specify the device using the device number \fIdevno\fR. This device number is a 4 character hexadecimal number WITHOUT prefixes. Leading zeros could be omitted. 
-.br
-
-NOTE: This option is only usable if your system has switched on the 
-device file system.
-.br
-
-NOTE: This option is now deprecated. Use the required parameter \fIdevice\fR
-instead.  
-.br
-
-example:
-.br
-	\fB-n\fR \fI900\fR or \fB--devno\fR=\fI900\fR
-
-.TP
 \fB-f\fR \fInode\fR or \fB--device=\fR\fInode\fR
-Specify the device using the device node. \fInode\fR is the complete path to the device.
-.br
-This could be either
-.br
-        \fB/dev/dasd\fR\fIx\fR
-.br
-    where \fIx\fR is one or more lowercase letter(s).
-.br
-or
-.br
-        \fB/dev/dasd/\fR\fIxxxx\fR\fB/device\fR
-.br
-    where \fIxxxx\fR is the four-letter device number. 
-.br
-depending if you are using devfs.
-.br
-
-NOTE: This option has to be used in case you do not use the device file system.
-.br
-
-NOTE: This option is now deprecated. Use the required parameter \fIdevice\fR
+NOTE: This option is deprecated. Use the required parameter \fIdevice\fR
 instead.  
 .br
-
-example:
-.br
-    with devfs:
-.br
-        \fB-f\fR \fB/dev/dasd/\fR\fI0900\fR\fB/device\fR or
-.br
-        \fB--device\fR=\fB/dev/dasd/\fR\fI0900\fR\fB/device\fR
-.br
-    without devfs:
-.br
-        \fB-f\fR \fB/dev/dasd\fR\fIa\fR or
-.br
-        \fB--device\fR=\fB/dev/dasd\fR\fIa\fR
+Specify the device using the device node. \fInode\fR is the complete path to the device.
 .br
 
 .SH SEE ALSO

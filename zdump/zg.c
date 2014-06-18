@@ -156,6 +156,14 @@ struct zg_fh *zg_open(const char *path, int flags, enum zg_check check)
 		ERR_EXIT_ERRNO("Could not access file \"%s\"", path);
 	}
 	zg_fh->path = zg_strdup(path);
+	if (S_ISBLK(zg_fh->sb.st_mode)) {
+		/* We have a block device - set correct size */
+		zg_fh->sb.st_size = lseek(zg_fh->fh, 0, SEEK_END);
+		if (zg_fh->sb.st_size == (off_t)-1)
+			goto fail;
+		if (lseek(zg_fh->fh, 0, SEEK_SET) == (off_t)-1)
+			goto fail;
+	}
 	return zg_fh;
 
 fail:

@@ -149,7 +149,7 @@ static void l_underline_toggle(void)
 /*
  * Print one line with attributes (bold and underline)
  */
-void l_print_line(const char *line)
+static void l_print_line(const char *line)
 {
 	char line_cpy[TBOX_MAX_STR + 1];
 	char *ptr_old, *ptr;

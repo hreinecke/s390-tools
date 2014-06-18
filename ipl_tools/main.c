@@ -20,7 +20,7 @@ void print_help_hint_exit(void)
 	exit(1);
 }
 
-void print_version_exit()
+void print_version_exit(void)
 {
 	printf("%s: Linux on System z shutdown actions version %s\n",
 		g.prog_name, RELEASE_STRING);

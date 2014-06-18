@@ -26,7 +26,8 @@
 
 #include "error.h"
 #include "misc.h"
-#include "proc.h"
+#include "util_proc.h"
+#include "install.h"
 
 /* from linux/fs.h */
 #define FIBMAP			_IO(0x00,1)
@@ -192,8 +193,8 @@ disk_get_info(const char* device, struct job_target_data* target,
 {
 	struct stat stats;
 	struct stat script_stats;
-	struct proc_part_entry part_entry;
-	struct proc_dev_entry dev_entry;
+	struct util_proc_part_entry part_entry;
+	struct util_proc_dev_entry dev_entry;
 	struct dasd_information dasd_info;
 	struct disk_info *data;
 	int fd;
@@ -226,9 +227,9 @@ disk_get_info(const char* device, struct job_target_data* target,
 	}
 	memset((void *) data, 0, sizeof(struct disk_info));
 	/* Try to get device driver name */
-	if (proc_dev_get_entry(stats.st_rdev, 1, &dev_entry) == 0) {
+	if (util_proc_dev_get_entry(stats.st_rdev, 1, &dev_entry) == 0) {
 		data->drv_name = misc_strdup(dev_entry.name);
-		proc_dev_free_entry(&dev_entry);
+		util_proc_dev_free_entry(&dev_entry);
 	} else {
 		fprintf(stderr, "Warning: Could not determine driver name for "
 			"major %d from /proc/devices\n", major(stats.st_rdev));
@@ -246,8 +247,15 @@ disk_get_info(const char* device, struct job_target_data* target,
 		data->source = source_script;
 		/* Run targetbase script */
 		strcpy(ppn_cmd, script_file);
-		strcat(ppn_cmd, " ");
-		strcat(ppn_cmd, target->bootmap_dir);
+		if (target->bootmap_dir == NULL) {
+			/* happens in case of partition dump */
+			snprintf(ppn_cmd, sizeof(ppn_cmd), "%s %d:%d",
+				 script_file, major(stats.st_rdev),
+				 minor(stats.st_rdev));
+		} else {
+			strcat(ppn_cmd, " ");
+			strcat(ppn_cmd, target->bootmap_dir);
+		}
 		printf("Run %s\n", ppn_cmd);
 		fh = popen(ppn_cmd, "r");
 		if (fh == NULL) {
@@ -323,6 +331,7 @@ disk_get_info(const char* device, struct job_target_data* target,
 		    == 2) {
 			data->device = makedev(majnum, minnum);
 			data->targetbase = defined_as_device;
+			data->partnum = minor(stats.st_rdev) - minnum;
 		}
 		else {
 			if (stat(target->targetbase, &stats)) {
@@ -346,13 +355,6 @@ disk_get_info(const char* device, struct job_target_data* target,
 		error_reason("Could not get blocksize");
 		goto out_close;
 	}
-
-	/* Get size of device in sectors (512 byte) */
-	if (ioctl(fd, BLKGETSIZE, &devsize)) {
-		error_reason("Could not get device size");
-		goto out_close;
-	}
-
 	/* Determine disk type */
 	if (!data->drv_name) {
 		/* Driver name cannot be read */
@@ -414,6 +416,12 @@ disk_get_info(const char* device, struct job_target_data* target,
 	}
 
 type_determined:
+	/* Get size of device in sectors (512 byte) */
+	if (ioctl(fd, BLKGETSIZE, &devsize)) {
+		error_reason("Could not get device size");
+		goto out_close;
+	}
+
 	/* Check for valid CHS geometry data. */
 	if (disk_is_eckd(data->type) && (data->geo.cylinders == 0 ||
 	    data->geo.heads == 0 || data->geo.sectors == 0)) {
@@ -427,9 +435,9 @@ type_determined:
 	if (data->partnum != 0)
 		data->partition = stats.st_rdev;
 	/* Try to get device name */
-	if (proc_part_get_entry(data->device, &part_entry) == 0) {
+	if (util_proc_part_get_entry(data->device, &part_entry) == 0) {
 		data->name = misc_strdup(part_entry.name);
-		proc_part_free_entry(&part_entry);
+		util_proc_part_free_entry(&part_entry);
 		if (data->name == NULL)
 			goto out_close;
 	}
@@ -447,6 +455,34 @@ out_close:
 
 }
 
+int
+disk_is_tape(const char* device)
+{
+	int fd, rc = 0;
+
+	/* Check for tape */
+	fd = open(device, O_RDWR);
+	if (fd == -1)
+		return 0;
+	if (rewind_tape(fd) == 0)
+		rc = 1;
+	close(fd);
+	return rc;
+}
+
+int
+disk_is_scsi(const char* device, struct job_target_data* target)
+{
+	struct disk_info* info;
+	int rc = 0;
+
+	if (disk_get_info(device, target, &info) == -1)
+		return 0;
+	if (info->type == disk_type_scsi)
+		rc = 1;
+	disk_free_info(info);
+	return rc;
+}
 
 int
 disk_get_info_from_file(const char* filename, struct job_target_data* target,
@@ -514,8 +550,8 @@ disk_free_info(struct disk_info* info)
  * blocknumber in the variable pointed to by PHYSICAL. Return non-zero
  * otherwise. */
 int
-disk_get_blocknum(int fd, blocknum_t logical, blocknum_t* physical,
-		  struct disk_info* info)
+disk_get_blocknum(int fd, int fd_is_basedisk, blocknum_t logical,
+		  blocknum_t* physical, struct disk_info* info)
 {
 	struct statfs buf;
 	blocknum_t phy_per_fs;
@@ -524,7 +560,10 @@ disk_get_blocknum(int fd, blocknum_t logical, blocknum_t* physical,
 
 	/* No file system: partition or raw disk */
 	if (info->fs_block_size == -1) {
-		*physical = logical;
+		if (fd_is_basedisk)
+			*physical = logical;
+		else
+			*physical = logical + info->geo.start;
 		return 0;
 	}
 
@@ -631,9 +670,10 @@ disk_blockptr_from_blocknum(disk_blockptr_t* ptr, blocknum_t blocknum,
  * bytes are written. INFO provides information about the disk layout. Upon
  * success, return 0 and store the pointer to the resulting disk block to BLOCK
  * (if BLOCK is not NULL). Return non-zero otherwise. */
-int
-disk_write_block_aligned(int fd, const void* data, size_t bytecount,
-			 disk_blockptr_t* block, struct disk_info* info)
+static int
+disk_write_block_aligned_base(int fd, int is_base_disk, const void* data,
+			      size_t bytecount, disk_blockptr_t* block,
+			      struct disk_info* info)
 {
 	blocknum_t current_block;
 	blocknum_t blocknum;
@@ -663,13 +703,21 @@ disk_write_block_aligned(int fd, const void* data, size_t bytecount,
 		return -1;
 	if (block != NULL) {
 		/* Store block pointer */
-		if (disk_get_blocknum(fd, current_block, &blocknum, info))
+		if (disk_get_blocknum(fd, is_base_disk, current_block,
+				      &blocknum, info))
 			return -1;
 		disk_blockptr_from_blocknum(block, blocknum, info);
 	}
 	return 0;
 }
 
+int
+disk_write_block_aligned(int fd, const void* data, size_t bytecount,
+			 disk_blockptr_t* block, struct disk_info* info)
+{
+	return disk_write_block_aligned_base(fd, 0, data, bytecount, block,
+					     info);
+}
 
 /* Write BYTECOUNT bytes from memory at location BUFFER to the file identified
  * by file descriptor FD and return the list of pointers to the disk blocks
@@ -678,8 +726,8 @@ disk_write_block_aligned(int fd, const void* data, size_t bytecount,
  * otherwise. Note that the data is written to a file position which is aligned
  * on a block size boundary. */
 blocknum_t
-disk_write_block_buffer(int fd, const void* buffer, size_t bytecount,
-			disk_blockptr_t** blocklist,
+disk_write_block_buffer(int fd, int fd_is_basedisk, const void* buffer,
+			size_t bytecount, disk_blockptr_t** blocklist,
 			struct disk_info* info)
 {
 	disk_blockptr_t* list;
@@ -702,7 +750,8 @@ disk_write_block_buffer(int fd, const void* buffer, size_t bytecount,
 		chunk_size = bytecount - written;
 		if (chunk_size > (size_t) info->phy_block_size)
 			chunk_size = info->phy_block_size;
-		rc = disk_write_block_aligned(fd, VOID_ADD(buffer, written),
+		rc = disk_write_block_aligned_base(fd, fd_is_basedisk,
+						   VOID_ADD(buffer, written),
 				chunk_size,
 				&list[i], info);
 		if (rc) {
@@ -996,7 +1045,7 @@ disk_get_blocklist_from_file(const char* filename, disk_blockptr_t** blocklist,
 	memset((void *) list, 0, sizeof(disk_blockptr_t) * count);
 	/* Build list */
 	for (i=0; i < count; i++) {
-		if (disk_get_blocknum(fd, i, &blocknum, info)) {
+		if (disk_get_blocknum(fd, 0, i, &blocknum, info)) {
 			free(list);
 			close(fd);
 			return 0;

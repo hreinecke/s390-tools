@@ -15,7 +15,7 @@ OBJECTS = hyptop.o opts.o helper.o \
 
 $(OBJECTS): *.h Makefile
 
-hyptop: $(OBJECTS) ../libutil/util_list.o
+hyptop: $(OBJECTS) $(rootdir)/libutil/util_list.o
 
 install: all
 	$(INSTALL) -g $(GROUP) -o $(OWNER) -m 755 hyptop $(USRSBINDIR)

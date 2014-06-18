@@ -223,7 +223,7 @@ void print_term(struct term *fn)
 	}
 }
 
-static struct term *parse_var_term(char **p, enum op_prio prio)
+static struct term *parse_var_term(char **p)
 {
 	char *s, *var_rvalue;
 	struct term *fn;
@@ -309,7 +309,7 @@ struct term *parse_term(char **p, enum op_prio prio)
 		s++;
 	} else {
 		/* Check for variable name */
-		fn = parse_var_term(&s, OP_PRIO_NONE);
+		fn = parse_var_term(&s);
 		if (fn == NULL) {
 			for (i = 0; i < sym_names_count; i++)
 				if (strncmp(s, sym_names[i].name,

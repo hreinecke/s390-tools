@@ -1,31 +1,15 @@
 /*
- * File...........: ibmOSAMib.c
- * Author(s)......: Thomas Weber <tweber@de.ibm.com>
- * Copyright IBM Corp. 2002,2007
+ * osasnmpd - IBM OSA-Express network card SNMP subagent
  *
- * History of changes:
- * none                 
- *  
- * Basic MIB implementation module for the OSA-E subagent.  
+ * Basic MIB implementation module for the OSA-E subagent
+ *
  * The code in this module is typical for a ucd-snmp MIB implementation
- * information on how this works.                                      
- * Because the MIB layout is retrieved during startup of the subagent,
- * the magic indentifier is not used within this implementation.
- * The var_ function uses the vp->type instead to distinct the OIDs.
- * 
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+ * information on how this works because the MIB layout is retrieved during
+ * startup of the subagent, the magic identifier is not used within this
+ * implementation. The var_ function uses the vp->type instead to distinct
+ * the OIDs.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Copyright IBM Corp. 2002, 2007
  */
 
 #include "ibmOSAMibUtil.h"
@@ -453,7 +437,7 @@ unsigned char* var_ibmOSAMib( struct variable *vp,
     return (unsigned char *) &osa_counter64; 
     break;
 
-  case ASN_OPAQUE:    /* old v1 type/included for compability */ 
+  case ASN_OPAQUE:    /* old v1 type/included for compatibility */
   case ASN_OCTET_STR: /* used for Binary data */ 
                       /* case Display String is handled within var_DisplayStr() */
    
@@ -882,9 +866,9 @@ int do_GET_ioctl ( int ifIndex, oid *name, size_t len, IPA_CMD_GET **cmd )
  *  IN    oid    *name        - OID to be set
  *  IN    size_t name_len     - len of OID to be set 
  *  returns: SNMP_ERR_WRONGTYPE  - wrong data type passed in     
- *           SNMP_ERR_GENERR     - general error occured
+ *           SNMP_ERR_GENERR     - general error occurred
  *           SNMP_ERR_UNDOFAILED - undo operation failed
- *           SNMP_ERR_NOERROR    - variable set sucessful
+ *           SNMP_ERR_NOERROR    - variable set successful
  *********************************************************************/
 int write_ibmOSAMib( int      action,
                         u_char   *UNUSED(var_val),
@@ -915,7 +899,7 @@ int write_ibmOSAMib( int      action,
 
         case ACTION:
           /* Actually make the change requested. Note that anything done
-             here must be reversable in the UNDO case */                  
+             here must be reversible in the UNDO case */
           break;
 
 

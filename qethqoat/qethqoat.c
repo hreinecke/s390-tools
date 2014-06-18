@@ -571,7 +571,7 @@ int main(int argc, char **argv)
 		FILE *rf = fopen(opts.ifname, "r");
 		if (!rf) {
 			perror("qethqoat");
-			free((void *)oat_data.ptr);
+			free((void *)(unsigned long)oat_data.ptr);
 			return errno;
 		}
 		oat_data.response_len = fread(
@@ -583,7 +583,7 @@ int main(int argc, char **argv)
 	sd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sd < 0) {
 		perror("qethqoat");
-		free((void *)oat_data.ptr);
+		free((void *)(unsigned long)oat_data.ptr);
 		return errno;
 	}
 
@@ -597,7 +597,7 @@ int main(int argc, char **argv)
 			perror("qethqoat");
 		rc = errno;
 		close(sd);
-		free((void *)oat_data.ptr);
+		free((void *)(unsigned long)oat_data.ptr);
 		return rc;
 	}
 	close(sd);
@@ -609,12 +609,12 @@ parse:
 		l_iconv_ebcdic_ascii = iconv_open("ISO-8859-1", "EBCDIC-US");
 		if (l_iconv_ebcdic_ascii == (iconv_t) -1) {
 			perror("qethqoat");
-			free((void *)oat_data.ptr);
+			free((void *)(unsigned long)oat_data.ptr);
 			return errno;
 		}
 		parse_data((char *)(unsigned long)oat_data.ptr,
 			oat_data.response_len);
 	}
-	free((void *)oat_data.ptr);
+	free((void *)(unsigned long)oat_data.ptr);
 	return 0;
 }

@@ -1,13 +1,12 @@
-#! /bin/bash
+#!/bin/bash
 #
-# lsznet.raw - List sensible network device hardware setups for Linux on s390(x)
+# lsznet.raw - Tool to list sensible network device hardware setups
 #
 # This script is not intended to be used as standalone tool, but should be
 # used from other tools like a library function. E.g. znetconf is one exploiter
 # of this script.
 #
 # Copyright IBM Corp. 2008, 2009 
-# Author(s):  Steffen Maier <maier@de.ibm.com>
 #
 
 readonly SYSFS=/sys

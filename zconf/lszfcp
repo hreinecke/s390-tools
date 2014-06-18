@@ -1,11 +1,8 @@
 #!/bin/bash
 # 
+# lszfcp - Tool to display information about zfcp devices (adapters/ports/units)
+#
 # Copyright IBM Corp. 2006, 2008
-#
-# lszfcp
-# Display sysfs information about zfcp devices (adapters, ports, units)
-#
-# Author(s): Stephan Mann (stemann@de.ibm.com)
 #
 
 SCRIPTNAME='lszfcp'

@@ -15,7 +15,7 @@ $(OBJECTS): *.h Makefile
 CMSFS_FUSE_DIR = $(SYSCONFDIR)/cmsfs-fuse
 CONFIG_FILES = filetypes.conf
 
-cmsfs-fuse: $(OBJECTS) ../libutil/util_list.o
+cmsfs-fuse: $(OBJECTS) $(rootdir)/libutil/util_list.o
 
 install: all
 	$(INSTALL) -g $(GROUP) -o $(OWNER) -m 755 cmsfs-fuse $(USRBINDIR)
