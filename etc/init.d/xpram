@@ -1,0 +1,278 @@
+#! /bin/sh
+# Copyright (c) 2004 SUSE LINUX AG Nuernberg, Germany.
+#
+# Submit feedback to http://www.suse.de/feedback/
+#
+# /etc/init.d/xpram
+#
+#   and symbolic its link
+#
+# /use/sbin/rcxpram
+#
+# System startup script for XPRAM device driver
+#
+### BEGIN INIT INFO
+# Provides: xpram
+# Required-Start: $remote_fs
+# Required-Stop:  $null
+# Default-Start:  3 5
+# Default-Stop:   0 1 6
+# Short-Description:    XPRAM device driver
+# Description:    Creates an xpram device and mounts it
+### END INIT INFO
+#
+
+XPRAM_CONFIG_FILE=/etc/sysconfig/xpram
+
+read_config_file() {
+    if [ config_read = 1 ]; then
+	return 0
+    fi
+    file=$XPRAM_CONFIG_FILE
+    
+    if [ -s "$file" ]; then
+	source $file
+	config_read=1
+    else
+	echo -ne "Cannot read $file: empty or nonexistant! "
+	# Means not configured:
+	rc_failed 6
+	rc_status -v
+	return 6
+    fi
+}
+
+prepare_xpram() {
+    if [ -z "$XPRAM_MNTPATH" -o -z "$XPRAM_DEVNODE" ]; then
+        echo -n "Cannot mkfs/mount XPRAM: Missing parameters! "
+        rc_failed 6
+        rc_status -v
+        rc_exit
+    fi
+    grep -q $XPRAM_DEVNODE /proc/mounts 2>&1 > /dev/null
+    if [ $? -eq 0 ] ; then
+        echo -n "$service: $XPRAM_DEVNODE already mounted! "
+        return
+    fi
+    current_fstype=`vol_id -t $XPRAM_DEVNODE 2> /dev/null`
+    if [ $? -ne 0 -o "$XPRAM_FORCE" = "yes" ]
+    then
+#		Does not contain a valid filesystem/swap space
+        if [ "$XPRAM_FSTYPE" = swap ]
+        then
+            mkswap $XPRAM_DEVNODE
+        else
+            mkfs -t "$XPRAM_FSTYPE" -b 4096 "$XPRAM_DEVNODE"
+        fi
+        sleep 1 # workaround
+        current_fstype=$XPRAM_FSTYPE
+    fi
+    if [ ! "$current_fstype" = "$XPRAM_FSTYPE" ]
+    then
+        echo
+        echo -n "Warning: current filessystem and configured filesystem are not the same!"
+        rc_failed 6
+        rc_status -v
+        rc_exit
+    fi
+    if [ "$XPRAM_FSTYPE" = swap ]
+    then
+        if [ "$XPRAM_SWAP_PRI" = "" ]
+        then
+            swapon $XPRAM_DEVNODE
+        else
+            swapon -p $XPRAM_SWAP_PRI $XPRAM_DEVNODE
+        fi
+    else
+        if [ ! -d "$XPRAM_MNTPATH" ]
+        then
+            mkdir -p "$XPRAM_MNTPATH"
+        fi
+        mount "$XPRAM_DEVNODE" "$XPRAM_MNTPATH"
+        if [ $? -ne 0 ]
+        then
+            echo -n "Mount failed with error code $?"
+            rc_failed 6
+            rc_status -v
+            rc_exit
+        fi
+    fi
+}
+
+# Shell functions sourced from /etc/rc.status:
+#      rc_check         check and set local and overall rc status
+#      rc_status        check and set local and overall rc status
+#      rc_status -v     ditto but be verbose in local rc status
+#      rc_status -v -r  ditto and clear the local rc status
+#      rc_failed        set local and overall rc status to failed
+#      rc_failed <num>  set local and overall rc status to <num><num>
+#      rc_reset         clear local rc status (overall remains)
+#      rc_exit          exit appropriate to overall rc status
+. /etc/rc.status
+
+# First reset status of this service
+config_read=0
+rc_reset
+
+# Return values acc. to LSB for all commands but status:
+# 0 - success
+# 1 - generic or unspecified error
+# 2 - invalid or excess argument(s)
+# 3 - unimplemented feature (e.g. "reload")
+# 4 - insufficient privilege
+# 5 - program is not installed
+# 6 - program is not configured
+# 7 - program is not running
+# 
+# Note that starting an already running service, stopping
+# or restarting a not-running service as well as the restart
+# with force-reload (in case signalling is not supported) are
+# considered a success.
+
+check_config () {
+    if [ -z "$XPRAM_MODULE" ]; then
+	echo -n "$file: parameters XPRAM_MODULE missing! "
+	rc_failed 6
+	rc_status -v
+	rc_exit
+    fi
+}
+
+quit_disabled() {
+    if [ "$XPRAM_START" != "yes" ]; then
+	# Config file exists but xpram not enabled, do not complain,
+	# but note with exit status 6 that we are not configured.
+	rc_exit
+    fi
+}
+
+check_enabled() {
+    if [ "$XPRAM_START" != "yes" ]; then
+	rc_failed 6
+	if [ "$XPRAM_MODULE" ]; then
+	    if grep -q "$XPRAM_MODULE" /proc/modules; then
+		echo -n "Service $service $_rc_todo "
+		rc_status -v
+	    fi
+	fi
+	rc_exit
+    fi
+}
+
+service="xpram"
+case "$1" in
+    start)
+        # Read in configuration
+        read_config_file || rc_exit
+
+	check_enabled
+	quit_disabled
+	check_config
+
+	echo -n "Creating $service device "
+	modprobe "$XPRAM_MODULE"
+	if [ $? -ne 0 ]; then
+	    echo -n "- failed to load $XPRAM_MODULE "
+	    rc_failed 1
+	else
+	    prepare_xpram
+	fi
+
+	# Remember status and be verbose
+	rc_status -v
+	;;
+    stop)
+        # Read in configuration
+        read_config_file || rc_exit
+
+	# check_enabled
+	# quit_disabled
+
+	echo -n "Removing $service device "
+
+	check_config
+
+	if [ "$XPRAM_DEVNODE" ]; then
+	    if grep -q $XPRAM_DEVNODE /proc/mounts; then
+		umount $XPRAM_DEVNODE
+	    fi
+	    if swapon -s | grep -q $XPRAM_DEVNODE; then
+		swapoff $XPRAM_DEVNODE
+	    fi
+	fi
+
+	if grep -q "$XPRAM_MODULE" /proc/modules; then
+		rmmod "$XPRAM_MODULE"
+		rc_status
+	else
+		rc_failed 7
+	fi
+
+	# Remember status and be verbose
+	rc_status -v
+	;;
+    try-restart)
+	## Stop the service and if this succeeds (i.e. the 
+	## service was running before), start it again.
+	## Note: try-restart is not (yet) part of LSB (as of 0.7.5)
+	$0 status >/dev/null &&  $0 restart
+
+	# Remember status and be quiet
+	rc_status
+	;;
+    restart)
+	## Stop the service and regardless of whether it was
+	## running or not, start it again.
+	$0 stop
+	$0 start
+
+	# Remember status and be quiet
+	rc_status
+	;;
+    force-reload)
+	echo -n "Force-reload $service "
+
+	$0 stop  &&  $0 start
+	rc_status
+	;;
+    reload)
+	echo -n "Reloading $service not supported."
+	
+	## it does not support reload:
+	rc_failed 3
+	rc_status -v
+	;;
+    status)
+	echo -n "Checking $service "
+
+	# Status has a slightly different meaning for the status command:
+	# 0 - service running
+	# 1 - service dead, but /var/run/  pid  file exists
+	# 3 - service not running
+
+        # Read in configuration
+        read_config_file || rc_exit
+
+	check_config
+
+	lsmod | grep -q $XPRAM_MODULE 
+	if [ $? -eq 0 ]; then
+	    if [ "$XPRAM_DEVNODE" ]; then
+		if ! grep -q $XPRAM_DEVNODE /proc/mounts && ! swapon -s | grep -q $XPRAM_DEVNODE; then
+		    xpram_result=3
+		    echo -n "loaded, but $XPRAM_DEVNODE not used"
+		    rc_failed 3
+		fi
+	    fi
+	else
+	    rc_failed 3
+	fi
+
+	rc_status -v
+	;;
+    *)
+	echo "Usage: $0 {start|stop|status|try-restart|restart}"
+	exit 1
+	;;
+esac
+rc_exit
