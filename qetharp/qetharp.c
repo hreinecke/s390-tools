@@ -79,7 +79,7 @@ qeth_hex_dump(unsigned char *buf, int len)
 static void
 show_header() 
 {
-	printf("%-40.40s%-20.20s%-10.10s%-10.10s\n", 
+	printf("%-40.40s%-20.20s%-10.10s%-16.16s\n",
 	       "Address","HWaddress","HWType","Iface");
 }
 
@@ -152,7 +152,7 @@ void show_entry5(__u8 ipaddr_type, __u8 *ip, struct option_info *opin)
 				name = fqhn;
 			}
 		}
-		printf("%-40.40s%-20.20s%-10.10s%-10.10s\n", name, "","hiper",
+		printf("%-40.40s%-20.20s%-10.10s%-16.16s\n", name, "","hiper",
 			opin->dev_name);
 	}
 
@@ -219,7 +219,7 @@ void show_entry7(__u8 ipaddr_type, __u8 *ip, __u8 *mac,
 		sprintf(macstrbuf,"%02x:%02x:%02x:%02x:%02x:%02x",
 			mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
 
-		printf("%-40.40s%-20.20s%-10.10s%-10.10s\n", name, macstrbuf,
+		printf("%-40.40s%-20.20s%-10.10s%-16.16s\n", name, macstrbuf,
 			(flags==OSACARD_FLAGS)? "ether":
 			(flags==OSA_TR_FLAGS)? "tr":"n/a",
 			opin->dev_name);
