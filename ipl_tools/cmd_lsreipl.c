@@ -135,7 +135,7 @@ void cmd_lsreipl(int argc, char *argv[])
 			    sizeof(reipl_type_str));
 
 	if (strcmp(reipl_type_str, "fcp") == 0)
-		print_fcp(l.ipl_set, 1);
+		print_fcp(l.ipl_set, 0);
 	else if (strcmp(reipl_type_str, "fcp_dump") == 0)
 		print_fcp(l.ipl_set, 1);
 	else if (strcmp(reipl_type_str, "ccw") == 0)
