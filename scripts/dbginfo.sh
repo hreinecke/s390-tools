@@ -6,10 +6,11 @@
 #
 
 # Switching to neutral locale
-export LC_ALL=C
+LC_ALL=C
+export LC_ALL
 
 # The kernel release version as delivered from uname -r
-readonly KERNEL_RELEASE_VERSION="`uname -r 2>/dev/null`"
+readonly KERNEL_RELEASE_VERSION=$(uname -r 2>/dev/null)
 
 ########################################
 # Global used variables
@@ -19,25 +20,28 @@ readonly KERNEL_RELEASE_VERSION="`uname -r 2>/dev/null`"
 readonly SCRIPTNAME="${0##*/}"
 
 # The terminal
-readonly TERMINAL="`tty 2>/dev/null`"
+readonly TERMINAL=$(tty 2>/dev/null)
+
+# The hostname of the system
+readonly SYSTEMHOSTNAME=$(hostname -s 2>/dev/null)
 
 # The processor ID for the first processor
-readonly PROCESSORID=`grep -E ".*processor 0:.*" /proc/cpuinfo | sed 's/.*identification[[:space:]]*\=[[:space:]]*\([[:alnum:]]*\).*/\1/g'`
+readonly PROCESSORID=$(grep -E ".*processor 0:.*" /proc/cpuinfo | sed 's/.*identification[[:space:]]*\=[[:space:]]*\([[:alnum:]]*\).*/\1/g')
 
 # The processor version for the first processor
-readonly PROCESSORVERSION=`grep -E ".*processor 0:.*" /proc/cpuinfo | sed 's/.*version[[:space:]]*\=[[:space:]]*\([[:alnum:]]*\).*/\1/g'`
+readonly PROCESSORVERSION=$(grep -E ".*processor 0:.*" /proc/cpuinfo | sed 's/.*version[[:space:]]*\=[[:space:]]*\([[:alnum:]]*\).*/\1/g')
 
 # The current date
-readonly DATETIME=`date +%Y-%m-%d-%H-%M-%S 2>/dev/null`
+readonly DATETIME=$(date +%Y-%m-%d-%H-%M-%S 2>/dev/null)
 
 # The base working directory
 readonly WORKDIR_BASE="/tmp/"
 
 # The current working directory for the actual script execution
-if test -z ${PROCESSORID}; then
-    readonly WORKDIR_CURRENT="DBGINFO-"${DATETIME}"-`hostname -s 2>/dev/null`"
+if test -z "${PROCESSORID}"; then
+    readonly WORKDIR_CURRENT="DBGINFO-${DATETIME}-${SYSTEMHOSTNAME:-localhost}"
 else
-    readonly WORKDIR_CURRENT="DBGINFO-"${DATETIME}"-`hostname -s 2>/dev/null`-${PROCESSORID}"
+    readonly WORKDIR_CURRENT="DBGINFO-${DATETIME}-${SYSTEMHOSTNAME:-localhost}-${PROCESSORID}"
 fi
 
 # The current path where the collected information is put together
@@ -71,34 +75,34 @@ readonly MOUNT_POINT_DEBUGFS="/sys/kernel/debug"
 readonly COLLECTION_COUNT=7
 
 # The kernel version (e.g. '2' from 2.6.32 or '3' from 3.2.1)
-readonly KERNEL_VERSION="`uname -r 2>/dev/null | cut -d'.' -f1`"
+readonly KERNEL_VERSION=$(uname -r 2>/dev/null | cut -d'.' -f1)
 
 # The kernel major revision number (e.g. '6' from 2.6.32 or '2' from 3.2.1)
-readonly KERNEL_MAJOR_REVISION="`uname -r 2>/dev/null | cut -d'.' -f2`"
+readonly KERNEL_MAJOR_REVISION=$(uname -r 2>/dev/null | cut -d'.' -f2)
 
 # The kernel mainor revision number (e.g. '32' from 2.6.32 or '1' from 3.2.1)
-readonly KERNEL_MINOR_REVISION="`uname -r 2>/dev/null | cut -d'.' -f3 | sed s/[^0-9].*//g`"
+readonly KERNEL_MINOR_REVISION=$(uname -r 2>/dev/null | cut -d'.' -f3 | sed 's/[^0-9].*//g')
 
 # Is this kernel supporting sysfs - since 2.4 (0=yes, 1=no)
-if test ${KERNEL_VERSION} -lt 2 ||
-    ( test  ${KERNEL_VERSION} -eq 2 && test ${KERNEL_MAJOR_REVISION} -le 4 ); then
+if test "${KERNEL_VERSION}" -lt 2 ||
+    ( test  "${KERNEL_VERSION}" -eq 2 && test "${KERNEL_MAJOR_REVISION}" -le 4 ); then
     readonly LINUX_SUPPORT_SYSFS=1
 else
     readonly LINUX_SUPPORT_SYSFS=0
 fi
 
 # Is this kernel potentially using the /sys/kernel/debug feature - since 2.6.13 (0=yes, 1=no)
-if test ${KERNEL_VERSION} -lt 2 ||
-    ( test ${KERNEL_VERSION} -eq 2 &&
-	( test ${KERNEL_MAJOR_REVISION} -lt 6 ||
-	    ( test ${KERNEL_MAJOR_REVISION} -eq 6 && test ${KERNEL_MINOR_REVISION} -lt 13 ))); then
+if test "${KERNEL_VERSION}" -lt 2 ||
+    ( test "${KERNEL_VERSION}" -eq 2 &&
+	( test "${KERNEL_MAJOR_REVISION}" -lt 6 ||
+	    ( test "${KERNEL_MAJOR_REVISION}" -eq 6 && test "${KERNEL_MINOR_REVISION}" -lt 13 ))); then
     readonly LINUX_SUPPORT_SYSFSDBF=1
 else
     readonly LINUX_SUPPORT_SYSFSDBF=0
 fi
 
 if test "x${PROCESSORVERSION}" = "xFF" || test "x${PROCESSORVERSION}" = "xff"; then
-    readonly RUNTIME_ENVIRONMENT=`grep -E "VM00.*Control Program.*" /proc/sysinfo| sed 's/.*:[[:space:]]*\([[:graph:]]*\).*/\1/g'`;
+    readonly RUNTIME_ENVIRONMENT=$(grep -E "VM00.*Control Program.*" /proc/sysinfo| sed 's/.*:[[:space:]]*\([[:graph:]]*\).*/\1/g')
 else
     readonly RUNTIME_ENVIRONMENT="LPAR"
 fi
@@ -145,12 +149,12 @@ PROCFILES="\
 # Adding files to PROCFILES in case scsi devices are available
 if test -e /proc/scsi; then
     PROCFILES="${PROCFILES}\
-      `find /proc/scsi -type f -perm /444 2>/dev/null`\
+      $(find /proc/scsi -type f -perm /444 2>/dev/null)\
       "
 fi
 
 # Adding files to PROCFILES in case we run on Kernel 2.4 or older
-if test ${LINUX_SUPPORT_SYSFS} -eq 1; then
+if test "${LINUX_SUPPORT_SYSFS}" -eq 1; then
     PROCFILES="${PROCFILES}\
       /proc/chpids\
       /proc/chandev\
@@ -161,10 +165,10 @@ if test ${LINUX_SUPPORT_SYSFS} -eq 1; then
 fi
 
 # Adding s390dbf files to PROCFILE in case we run on Kernel lower than 2.6.13
-if test ${LINUX_SUPPORT_SYSFSDBF} -eq 1; then
+if test "${LINUX_SUPPORT_SYSFSDBF}" -eq 1; then
     if test -e /proc/s390dbf; then
 	PROCFILES="${PROCFILES}\
-          `find /proc/s390dbf -type f -not -path \"*/raw\" -not -path \"*/flush\" 2>/dev/null`\
+          $(find /proc/s390dbf -type f -not -path "*/raw" -not -path "*/flush" 2>/dev/null)\
           "
     fi
 fi
@@ -226,7 +230,7 @@ CONFIGFILES="\
   /etc/udev*\
   /etc/xinet.d\
   /etc/*release\
-  `find /lib/modules -name modules.dep 2>/dev/null`\
+  $(find /lib/modules -name modules.dep 2>/dev/null)\
   "
 
 ########################################
@@ -294,7 +298,7 @@ CMDS="uname -a\
   :java -version\
   :cat /root/.bash_history\
   :env\
-  :journalctl --all --no-pager --reverse --since=$(date -d '5 day ago' +%Y-%m-%d) --until=now --lines=50000 > "${OUTPUT_FILE_JOURNALCTL}"\
+  :journalctl --all --no-pager --since=$(date -d '5 day ago' +%Y-%m-%d) --until=now --lines=50000 > ${OUTPUT_FILE_JOURNALCTL}\
   "
 
 ########################################
@@ -388,12 +392,12 @@ collect_vmcmdsout() {
     if echo "${RUNTIME_ENVIRONMENT}" | grep -qi "z/VM" >/dev/null 2>&1; then
 	pr_syslog_stdout "2 of ${COLLECTION_COUNT}: Collecting z/VM command output"
 
-	if type vmcp >/dev/null 2>&1; then
+	if which vmcp >/dev/null 2>&1; then
 	    cp_command="vmcp"
 	    if ! lsmod 2>/dev/null | grep -q vmcp; then
 		modprobe vmcp && module_loaded=0 && sleep 2
 	    fi
-	elif type hcp >/dev/null 2>&1; then
+	elif which hcp >/dev/null 2>&1; then
 	    cp_command="hcp"
 	    if ! lsmod 2>/dev/null | grep -q cpint; then
 		modprobe cpint && module_loaded=0 && sleep 2
@@ -405,9 +409,9 @@ collect_vmcmdsout() {
 	    pr_log_stdout " "
 	    return 1
 	fi
-	VMUSERID="`${cp_command} q userid 2>/dev/null | sed -ne 's/^\([^[:space:]]*\).*$/\1/p'`"
+	VMUSERID=$(${cp_command} q userid 2>/dev/null | sed -ne 's/^\([^[:space:]]*\).*$/\1/p')
 
-	vm_cmds="`echo ${VM_CMDS} | sed "s/VMUSERID/${VMUSERID}/g"`"
+	vm_cmds=$(echo "${VM_CMDS}" | sed "s/VMUSERID/${VMUSERID}/g")
 
 	IFS=:
 	for vm_command in ${vm_cmds}; do
@@ -415,9 +419,9 @@ collect_vmcmdsout() {
 	    local cp_buffer_size=2
 	    local rc_buffer_size=2
 	    while test ${rc_buffer_size} -eq 2 && test ${cp_buffer_size} -lt 1024; do
-		cp_buffer_size=$(( ${cp_buffer_size} * 2 ))
+		cp_buffer_size=$(( cp_buffer_size * 2 ))
 
-		eval ${cp_command} -b ${cp_buffer_size}k ${vm_command} >/dev/null 2>&1
+		eval ${cp_command} -b ${cp_buffer_size}k "${vm_command}" >/dev/null 2>&1
 		rc_buffer_size=$?
 	    done
 	    call_run_command "${cp_command} -b ${cp_buffer_size}k ${vm_command}" "${OUTPUT_FILE_VMCMD}"
@@ -454,20 +458,20 @@ collect_procfs() {
 
 ########################################
 collect_sysfs() {
-    local debugfs_mounted=0;
+    local debugfs_mounted=0
     local file_name
     local file_names
     local rc_mount
 
     # Requires kernel version newer then 2.4
-    if test ${LINUX_SUPPORT_SYSFS} -eq 0; then
+    if test "${LINUX_SUPPORT_SYSFS}" -eq 0; then
 	pr_syslog_stdout "4 of ${COLLECTION_COUNT}: Collecting sysfs"
 	# Requires kernel version of 2.6.13 or newer
-	if test ${LINUX_SUPPORT_SYSFSDBF} -eq 0; then
+	if test "${LINUX_SUPPORT_SYSFSDBF}" -eq 0; then
 	    if ! grep -qE "${MOUNT_POINT_DEBUGFS}.*debugfs" /proc/mounts 2>/dev/null; then
 		if mount -t debugfs debugfs "${MOUNT_POINT_DEBUGFS}" >/dev/null 2>&1; then
 		    sleep 2
-		    debugfs_mounted=1;
+		    debugfs_mounted=1
 		else
 		    pr_log_stdout "${SCRIPTNAME}: Warning: Unable to mount debugfs at \"${MOUNT_POINT_DEBUGFS}\""
 		fi
@@ -491,7 +495,7 @@ collect_sysfs() {
 	    umount "${MOUNT_POINT_DEBUGFS}"
 	fi
     else
-	pr_syslog_stdout "4 of ${COLLECTION_COUNT}: Collecting sysfs skipped. Kernel `uname -r` must be newer than 2.4"
+	pr_syslog_stdout "4 of ${COLLECTION_COUNT}: Collecting sysfs skipped. Kernel $(uname -r) must be newer than 2.4"
     fi
 
     pr_log_stdout " "
@@ -528,13 +532,13 @@ collect_configfiles() {
 
 ########################################
 collect_osaoat() {
-    local network_devices="`lsqeth 2>/dev/null | grep "Device name" | sed 's/.*:[[:space:]]\+\([^[:space:]]*\)[[:space:]]\+/\1/g'`"
+    local network_devices=$(lsqeth 2>/dev/null | grep "Device name" | sed 's/.*:[[:space:]]\+\([^[:space:]]*\)[[:space:]]\+/\1/g')
     local network_device
 
     if which qethqoat >/dev/null 2>&1; then
 	if test -n "${network_devices}"; then
 	    pr_syslog_stdout "7 of ${COLLECTION_COUNT}: Collecting osa oat output"
-	    for network_device in "${network_devices}"; do
+	    for network_device in ${network_devices}; do
 		call_run_command "qethqoat ${network_device}" "${OUTPUT_FILE_OSAOAT}.out" &&
 		call_run_command "qethqoat -r ${network_device}" "${OUTPUT_FILE_OSAOAT}_${network_device}.raw"
 	    done
@@ -555,10 +559,10 @@ collect_osaoat() {
 call_run_command() {
     local cmd="${1}"
     local logfile="${2}"
-    local raw_cmd="`echo ${cmd} | sed -ne 's/^\([^[:space:]]*\).*$/\1/p'`"
+    local raw_cmd=$(echo "${cmd}" | sed -ne 's/^\([^[:space:]]*\).*$/\1/p')
 
     echo "#######################################################" >> "${logfile}"
-    echo "${USER}@${HOSTNAME}> ${cmd}" >> "${logfile}"
+    echo "${USER}@${SYSTEMHOSTNAME:-localhost}> ${cmd}" >> "${logfile}"
 
     # check if command exists
     if ! which "${raw_cmd}" >/dev/null 2>&1; then
@@ -566,7 +570,7 @@ call_run_command() {
 	if ! command -v "${raw_cmd}" >/dev/null 2>&1; then
 	    echo "${SCRIPTNAME}: Warning: Command \"${raw_cmd}\" not available" >> "${logfile}"
 	    echo >> "${logfile}"
-	    return 1;
+	    return 1
 	fi
     fi
 
@@ -588,7 +592,7 @@ call_collect_file() {
 
     echo " ${file_name}"
 
-    directory_name="`dirname \"${file_name}\" 2>/dev/null`"
+    directory_name=$(dirname "${file_name}" 2>/dev/null)
     if test ! -e "${WORKPATH}${directory_name}"; then
 	mkdir -p "${WORKPATH}${directory_name}" 2>&1
     fi
@@ -673,10 +677,10 @@ commandline_parse()
     local cmdline_arg1=${1}
     local cmdline_count=${#}
 
-    if test ${cmdline_count} -eq 1; then
-	if test ${cmdline_arg1} = '-h' || test ${cmdline_arg1} = '--help'; then
+    if test "${cmdline_count}" -eq 1; then
+	if test "${cmdline_arg1}" = '-h' || test "${cmdline_arg1}" = '--help'; then
 	    print_usage
-	elif test ${cmdline_arg1} = '-v' || test ${cmdline_arg1} = '--version'; then
+	elif test "${cmdline_arg1}" = '-v' || test "${cmdline_arg1}" = '--version'; then
 	    print_version
 	else
 	    echo
@@ -686,7 +690,7 @@ commandline_parse()
 	    exit 1
 	fi
 	exit 0
-    elif test ${cmdline_count} -ge 1; then
+    elif test "${cmdline_count}" -ge 1; then
 	echo
 	echo "${SCRIPTNAME}: Error: Invalid number of arguments!"
 	echo
@@ -777,7 +781,7 @@ emergency_exit()
 
     pr_stdout " "
     logger -t "${SCRIPTNAME}" "Data collection interrupted"
-    exit;
+    exit
 }
 
 
@@ -804,17 +808,17 @@ pr_syslog_stdout()
 {
     echo "$@"
     echo "$@" >&8
-    logger -t ${SCRIPTNAME} "$@"
+    logger -t "${SCRIPTNAME}" "$@"
 }
 
 
 ###############################################################################
 # Running the script
 
-commandline_parse ${*}
+commandline_parse "${@}"
 
 # Verification to run as root
-if test `/usr/bin/id -u 2>/dev/null` -ne 0; then
+if test "$(/usr/bin/id -u 2>/dev/null)" -ne 0; then
     echo "${SCRIPTNAME}: Error: You must be user root to run \"${SCRIPTNAME}\"!"
     exit 1
 fi
@@ -823,14 +827,14 @@ environment_setup
 print_version
 
 # saving stdout/stderr and redirecting stdout/stderr into log file
-exec 8>&1 9>&2 >${LOGFILE} 2>&1
+exec 8>&1 9>&2 >"${LOGFILE}" 2>&1
 
-# trap on SIGHUP SIGINT SIGTERM
-trap emergency_exit 1 2 15
+# trap on SIGHUP=1 SIGINT=2 SIGTERM=15
+trap emergency_exit SIGHUP SIGINT SIGTERM
 
 pr_log_stdout ""
-pr_log_stdout "Hardware platform     = `uname -i`"
-pr_log_stdout "Kernel version        = ${KERNEL_VERSION}.${KERNEL_MAJOR_REVISION}.${KERNEL_MINOR_REVISION} (`uname -r 2>/dev/null`)"
+pr_log_stdout "Hardware platform     = $(uname -i)"
+pr_log_stdout "Kernel version        = ${KERNEL_VERSION}.${KERNEL_MAJOR_REVISION}.${KERNEL_MINOR_REVISION} ($(uname -r 2>/dev/null))"
 pr_log_stdout "Runtime environment   = ${RUNTIME_ENVIRONMENT}"
 pr_log_stdout ""
 
