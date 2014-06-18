@@ -1100,7 +1100,7 @@ function ask_for_remove()
 function extract_interface_name()
 {
 	local CFGLINE="$1"
-	local IF_NAME=$(expr substr "$CFGLINE" 62 11)
+	local IF_NAME=$(expr substr "$CFGLINE" 62 16)
 	REPLY=${IF_NAME%% *}
 	return 0
 }
