@@ -370,7 +370,7 @@ if [ $device != 0 ]; then
  	device_list="`ls -ld $interface_dir$device/device/cdev0`"
 	device_list="${device_list##*/}"
 else
-	device_list="`ls $device_dir | grep [?\.?\.*]`"
+	device_list="`ls $device_dir | grep '[?\.?\.*]'`"
 fi
 
 device_list_temp="`ls $interface_dir`"
