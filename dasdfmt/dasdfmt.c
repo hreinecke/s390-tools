@@ -16,6 +16,7 @@
 #include "dasdfmt.h"
 #include "vtoc.h"
 #include "util_proc.h"
+#include <sys/wait.h>
 
 /* Full tool name */
 static const char tool_name[] = "dasdfmt: zSeries DASD format program";
@@ -45,7 +46,7 @@ print_version (void)
  */
 static void exit_usage(int exitcode)
 {
-	printf("Usage: %s [-htvypPLVFk]\n"
+	printf("Usage: %s [-htvypQLVFk]\n"
 	       "	       [-l <volser>      | --label=<volser>]\n"
 	       "               [-b <blocksize>   | --blocksize=<blocksize>]\n"
 	       "               [-d <disk layout> | --disk_layout=<disk layout>]\n"
@@ -56,7 +57,7 @@ static void exit_usage(int exitcode)
 	       "       -V or --version  means print version\n"
 	       "       -L or --no_label means don't write disk label\n"
 	       "       -p or --progressbar means show a progress bar\n"
-	       "       -P or --percentage means show a progress in percent\n"
+	       "       -Q or --percentage means show a progress in percent\n"
 	       "       -m x or --hashmarks=x means show a hashmark every x "
 	       "cylinders\n"
 	       "       -r x or --requestsize=x means use x cylinders in one "
@@ -137,35 +138,77 @@ static void program_interrupt_signal (int sig)
 /*
  * check given device name for blanks and some special characters
  */
-static void get_device_name(dasdfmt_info_t *info, char *name, int argc, char * argv[])
+static char* getdev(char* sysfs_path)
+{
+	DIR* d;
+	struct dirent* de;
+
+	d = opendir(sysfs_path);
+	if(!d)
+		ERRMSG_EXIT(EXIT_FAILURE, "%s: Could not open directory %s.",
+			    prog_name,sysfs_path);
+
+	while((de = readdir(d))) {
+		if(strncmp(de->d_name,"block:",6) == 0) {
+			closedir(d);
+			return de->d_name+6;
+		}
+	}
+	return 0;
+}
+
+static void get_device_name(dasdfmt_info_t *info, char *name)
 {
 	struct util_proc_dev_entry dev_entry;
 	struct stat dev_stat;
+	char buf[PATH_MAX];
+	char devno[9];
+	char* device;
+	int i;
 
-	if (info->node_specified && (info->device_id < argc))
-		ERRMSG_EXIT(EXIT_MISUSE,"%s: Device can only specified once!\n",
+	if ((strchr(name, ' ') != NULL)||(strchr(name, '#') != NULL)||
+	    (strchr(name, '[') != NULL)||(strchr(name, ']') != NULL)||
+	    (strchr(name, '!') != NULL)||(strchr(name, '>') != NULL)||
+	    (strchr(name, '(') != NULL)||(strchr(name, '<') != NULL)||
+	    (strchr(name, ')') != NULL)||(strchr(name, ':') != NULL)||
+	    (strchr(name, '&') != NULL)||(strchr(name, ';') != NULL))
+		ERRMSG_EXIT(EXIT_MISUSE,"%s: Your filename contains "
+			    "blanks or special characters!\n",
 			    prog_name);
 
-	if (!info->node_specified && (info->device_id >= argc))
-		ERRMSG_EXIT(EXIT_MISUSE,"%s: No device specified!\n",
-			    prog_name);
-
-	if (info->device_id < argc) {
-		strcpy(info->devname, argv[info->device_id]);
-        } else {
-		if ((strchr(name, ' ') != NULL)||(strchr(name, '#') != NULL)||
-		    (strchr(name, '[') != NULL)||(strchr(name, ']') != NULL)||
-		    (strchr(name, '!') != NULL)||(strchr(name, '>') != NULL)||
-		    (strchr(name, '(') != NULL)||(strchr(name, '<') != NULL)||
-		    (strchr(name, ')') != NULL)||(strchr(name, ':') != NULL)||
-		    (strchr(name, '&') != NULL)||(strchr(name, ';') != NULL))
-			ERRMSG_EXIT(EXIT_MISUSE,"%s: Your filename contains "
-				    "blanks or special characters!\n",
-				    prog_name);
-
+	if (isxdigit(name[0]) && name[1] == '.' &&
+	    isxdigit(name[2]) && name[3] == '.' && strlen(name) == 8) {
+		/* x.x.xxxx format */
+		for(i=0; i<8; i++)
+			devno[i] = tolower(name[i]);
+		devno[8] = 0;
+		sprintf(buf,"/sys/bus/ccw/devices/%s",devno);
+		device = getdev(buf);
+		if(device) {
+			strcpy(info->devname,"/dev/");
+			strcat(info->devname,device);
+		} else
+			ERRMSG_EXIT(EXIT_FAILURE,
+				    "%s: Could not find device file for device no. %s",
+				    prog_name,name);
+	} else if (isxdigit(name[0]) && isxdigit(name[1]) &&
+		   isxdigit(name[2]) && isxdigit(name[3])) {
+		/* xxxx format */
+		for(i=0; i<4; i++)
+			devno[i] = tolower(name[i]);
+		devno[4] = 0;
+		sprintf(buf,"/sys/bus/ccw/devices/0.0.%s",devno);
+		device = getdev(buf);
+		if (device) {
+			strcpy(info->devname,"/dev/");
+			strcat(info->devname,device);
+		} else
+			ERRMSG_EXIT(EXIT_FAILURE,"%s: Could not find device file for device no. %s",
+				    prog_name,name);
+	} else
 		strncpy(info->devname, name, PATH_MAX - 1);
-		info->devname[PATH_MAX - 1] = '\0';
-	}
+
+	info->devname[PATH_MAX - 1] = '\0';
 
 	if (stat(info->devname, &dev_stat) != 0)
 		ERRMSG_EXIT(EXIT_MISUSE,
@@ -212,7 +255,8 @@ static void init_info(dasdfmt_info_t *info)
 	info->reqsize_specified = 0;
 	info->node_specified    = 0;
 	info->device_id         = 0;
-	info->keep_volser	= 0;
+	info->keep_volser       = 0;
+	info->yast_mode         = 0;
 }
 
 
@@ -257,7 +301,6 @@ static void check_disk(dasdfmt_info_t *info)
 			    "ECKD disk!\n", prog_name, info->devname);
 	}
 }
-
 
 
 /*
@@ -627,17 +670,18 @@ static void dasdfmt_format(dasdfmt_info_t *info, unsigned int cylinders,
 			       "using the default.\n");
 			info->hashstep = 10;
 		}
-		
-		printf("Printing hashmark every %d cylinders.\n", 
-		       info->hashstep);
+
+		if (!info->yast_mode)
+			printf("Printing hashmark every %d cylinders.\n",
+			       info->hashstep);
 	}
 
 	format_step.blksize   = format_params->blksize;
 	format_step.intensity = format_params->intensity;
-		
+
 	k = 0;
 	cyl = 1;
-	if (info->print_progressbar || info->print_hashmarks)
+	if ((info->print_progressbar || info->print_hashmarks) && !info->yast_mode)
 		printf("\n");
 
 	while (1) {
@@ -676,7 +720,7 @@ static void dasdfmt_format(dasdfmt_info_t *info, unsigned int cylinders,
 
 		if (info->print_hashmarks)
 			if ((cyl / info->hashstep - hashcount) != 0) {
-				printf("#");
+				printf("%d|",info->procnum);
 				fflush(stdout);
 				hashcount++;
 			}
@@ -697,8 +741,9 @@ static void dasdfmt_format(dasdfmt_info_t *info, unsigned int cylinders,
 			break;
 	}
 
-	if (info->print_progressbar || info->print_hashmarks)
-		printf("\n\n");	
+	if ((info->print_progressbar || info->print_hashmarks) &&
+	    !info->yast_mode)
+		printf("\n\n");
 }
 
 
@@ -850,17 +895,21 @@ static void do_format_dasd(dasdfmt_info_t *info, format_data_t *p,
 
 		dasdfmt_prepare_and_format(info, cylinders, heads, p);
 
-		printf("Finished formatting the device.\n");
+		if (!info->yast_mode)
+			printf("Finished formatting the device.\n");
 
 		if (!info->writenolabel) 
 			dasdfmt_write_labels(info, vlabel, cylinders, heads);
 
-		printf("Rereading the partition table... ");
+		if (!info->yast_mode)
+			printf("Rereading the partition table... ");
 		if (reread_partition_table()) {
 			ERRMSG("%s: error during rereading the partition "
 			       "table: %s.\n", prog_name, strerror(errno));
-		} else
-			printf("ok\n");
+		} else {
+			if (!info->yast_mode)
+				printf("ok\n");
+		 }
 	}
 }
 
@@ -871,7 +920,8 @@ int main(int argc,char *argv[])
 	volume_label_t vlabel;
 	char old_volser[7];
 
-	char dev_filename[PATH_MAX];
+	char* dev_filename[MAX_DEVICES];
+	int dev_count=0;
 	char str[ERR_LENGTH];
 	char buf[7];
 
@@ -879,7 +929,10 @@ int main(int argc,char *argv[])
 	char *reqsize_param_str = NULL;
 	char *hashstep_str      = NULL;
 
-	int rc, index;
+	int rc, index, i;
+
+	int max_parallel=1;
+	int running=0;
 
 	/* Establish a handler for interrupt signals. */
 	signal (SIGTERM, program_interrupt_signal);
@@ -960,7 +1013,7 @@ int main(int argc,char *argv[])
 			}
 			break;
 
-		case 'P':
+		case 'Q':
 			if (!(info.print_hashmarks || info.print_progressbar))
 				info.print_percentage = 1;
 			break;
@@ -1004,8 +1057,17 @@ int main(int argc,char *argv[])
 			info.reqsize_specified = 1;
 			break;
 		case 'f' :
-			strncpy(dev_filename, optarg, PATH_MAX);
+			if(dev_count>=MAX_DEVICES)
+				ERRMSG_EXIT(EXIT_MISUSE,"%s: too many devices specified.\n",
+					    prog_name);
+			dev_filename[dev_count++]=strdup(optarg);
 			info.node_specified=1;
+			break;
+		case 'Y' : /* YaST mode */
+			info.yast_mode=1;
+			break;
+		case 'P' : /* max parallel formatting processes */
+			max_parallel=atoi(optarg);
 			break;
 		case 'k' :
 			info.keep_volser=1;
@@ -1026,58 +1088,148 @@ int main(int argc,char *argv[])
 	CHECK_SPEC_MAX_ONCE(info.labelspec, "label");
 	CHECK_SPEC_MAX_ONCE(info.writenolabel, "omit-label-writing flag");
 
-	if (info.blksize_specified)
-		PARSE_PARAM_INTO(format_params.blksize,blksize_param_str,10,
-				 "blocksize");
-	if (info.reqsize_specified) {
-		PARSE_PARAM_INTO(reqsize, reqsize_param_str, 10, "requestsize");
-		if (reqsize < 1 || reqsize > 255)
-			ERRMSG_EXIT(EXIT_FAILURE,
-				    "invalid requestsize %d specified\n",
-				    reqsize);
-	} else
-		reqsize = DEFAULT_REQUESTSIZE;
-	if (info.print_hashmarks)
-		PARSE_PARAM_INTO(info.hashstep, hashstep_str,10,"hashstep");
+	while (info.device_id < argc) {
+		/* devices specified at the end of cmdline */
+		if(dev_count>=MAX_DEVICES)
+			ERRMSG_EXIT(EXIT_MISUSE,"%s: too many devices specified.\n",
+				    prog_name);
+		dev_filename[dev_count++]=strdup(argv[info.device_id]);
+		info.node_specified=1;
+		info.device_id++;
+	}
 
-	get_device_name(&info, dev_filename, argc, argv);
-
-        if (!info.blksize_specified)
-                format_params = ask_user_for_blksize(format_params);
+	if (info.node_specified == 0)
+		ERRMSG_EXIT(EXIT_MISUSE,"%s: No device specified!\n",
+			    prog_name);
 
 	if (info.keep_volser) {
 		if(info.labelspec) {
 			ERRMSG_EXIT(EXIT_MISUSE,"%s: The -k and -l options are mutually exclusive\n",
 			       prog_name);
 		}
-		if(!(format_params.intensity & DASD_FMT_INT_COMPAT)) {
-			printf("WARNING: VOLSER cannot be kept " \
-			       "when using the ldl format!\n");
-			exit(1);
-		}
-			
-		if(dasdfmt_get_volser(info.devname, old_volser) == 0)
-			vtoc_volume_label_set_volser(&vlabel, old_volser);
-		else
-			ERRMSG_EXIT(EXIT_FAILURE,"%s: VOLSER not found on device %s\n", 
-			       prog_name, info.devname);
-			
 	}
 
-	if ((filedes = open(info.devname, O_RDWR)) == -1)
-		ERRMSG_EXIT(EXIT_FAILURE,"%s: Unable to open device %s: %s\n", 
-			    prog_name, info.devname, strerror(errno));
+	if (info.labelspec && max_parallel > 1) {
+		ERRMSG_EXIT(EXIT_MISUSE,"%s: The -l option cannot be used with parallel formatting\n",
+			    prog_name);
+	}
 
-	check_disk(&info);
+	if(info.yast_mode) {
+		for(i=0;i<dev_count;i++) {
+			dasd_information_t dasd_info;
+			struct dasd_eckd_characteristics *characteristics;
+			unsigned int cylinders;
 
-	if (check_param(str, ERR_LENGTH, &format_params) < 0)
-		ERRMSG_EXIT(EXIT_MISUSE, "%s: %s\n", prog_name, str);
+			get_device_name(&info, dev_filename[i]);
+			if ((filedes = open(info.devname, O_RDWR)) == -1) {
+				ERRMSG("%s: Unable to open device %s: %s\n",
+					    prog_name, info.devname, strerror(errno));
+				free(dev_filename[i]);
+				dev_filename[i]=(char*)-1;	/* ignore device */
+				continue;
+			}
+			if (ioctl(filedes, BIODASDINFO, &dasd_info) != 0) {
+				ERRMSG_EXIT(EXIT_FAILURE, "%s: (retrieving disk information) "
+					    "IOCTL BIODASDINFO failed (%s).\n",
+					    prog_name, strerror(errno));
+				free(dev_filename[i]);
+				dev_filename[i]=(char*)-1;	/* ignore device */
+				close(filedes);
+				continue;
+			}
 
-	do_format_dasd(&info, &format_params, &vlabel);
+			characteristics =
+				(struct dasd_eckd_characteristics *) &dasd_info.characteristics;
+			if (characteristics->no_cyl == LV_COMPAT_CYL &&
+			    characteristics->long_no_cyl)
+				cylinders = characteristics->long_no_cyl;
+			else
+				cylinders = characteristics->no_cyl;
 
-	if (close(filedes) != 0)
-		ERRMSG("%s: error during close: %s\ncontinuing...\n", 
-		       prog_name, strerror(errno));
+			printf("%d\n", cylinders);
+			close(filedes);
+		}
+		fflush(stdout);
+	}
 
-	return 0;
+	/* fork one formatting process for each device */
+	rc = 0;
+	for(i=0;i<dev_count;i++) {
+		int chpid;	/* child process ID */
+		int tmp;
+
+		if(dev_filename[i]==(char*)-1) continue;	/* ignore device */
+
+		chpid=fork();
+		if(chpid==-1)
+			ERRMSG_EXIT(EXIT_FAILURE,"%s: Unable to create child process: %s\n",
+				    prog_name, strerror(errno));
+
+		if(!chpid) {
+			info.procnum=i;
+			if (info.blksize_specified)
+				PARSE_PARAM_INTO(format_params.blksize,blksize_param_str,10,
+						 "blocksize");
+			if (info.reqsize_specified) {
+				PARSE_PARAM_INTO(reqsize, reqsize_param_str, 10, "requestsize");
+				if (reqsize < 1 || reqsize > 255)
+					ERRMSG_EXIT(EXIT_FAILURE,
+						    "invalid requestsize %d specified\n",
+						    reqsize);
+			} else
+				reqsize = DEFAULT_REQUESTSIZE;
+			if (info.print_hashmarks)
+				PARSE_PARAM_INTO(info.hashstep, hashstep_str,10,"hashstep");
+
+			get_device_name(&info, dev_filename[i]);
+
+			if (!info.blksize_specified)
+				format_params = ask_user_for_blksize(format_params);
+
+			if (info.keep_volser) {
+				if(format_params.intensity == 0x00) {
+					printf("WARNING: VOLSER cannot be kept " \
+					       "when using the ldl format!\n");
+					exit(1);
+				}
+
+				if(dasdfmt_get_volser(info.devname, old_volser) == 0)
+					vtoc_volume_label_set_volser(&vlabel, old_volser);
+				else
+					ERRMSG_EXIT(EXIT_FAILURE,"%s: VOLSER not found on device %s\n",
+						    prog_name, info.devname);
+
+			}
+
+			if ((filedes = open(info.devname, O_RDWR)) == -1)
+				ERRMSG_EXIT(EXIT_FAILURE,"%s: Unable to open device %s: %s\n",
+					    prog_name, info.devname, strerror(errno));
+
+			check_disk(&info);
+
+			if (check_param(str, ERR_LENGTH, &format_params) < 0)
+				ERRMSG_EXIT(EXIT_MISUSE, "%s: %s\n", prog_name, str);
+
+			do_format_dasd(&info, &format_params, &vlabel);
+
+			if (close(filedes) != 0)
+				ERRMSG("%s: error during close: %s\ncontinuing...\n", 
+				       prog_name, strerror(errno));
+
+			exit(0);
+		} else {
+			running++;
+			if(running>=max_parallel) {
+				if(wait(&tmp) > 0 && WEXITSTATUS(tmp))
+					rc = WEXITSTATUS(tmp);
+				running--;
+			}
+		}
+	}
+
+	/* wait until all formatting children have finished */
+	while(wait(&i) > 0)
+		if (WEXITSTATUS(i)) rc = WEXITSTATUS(i);
+
+	return rc;
 }

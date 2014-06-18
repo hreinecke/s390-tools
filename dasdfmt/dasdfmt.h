@@ -195,6 +195,7 @@ typedef struct format_data_t {
 #define LABEL_LENGTH 14
 #define VLABEL_CHARS 84
 #define LINE_LENGTH  80
+#define MAX_DEVICES 1024
 #define ERR_LENGTH   90
 
 #define DEFAULT_BLOCKSIZE  4096
@@ -214,7 +215,7 @@ typedef struct format_data_t {
 	if (*endptr) ERRMSG_EXIT(EXIT_MISUSE,"%s: " str " "    \
 	"is in invalid format\n",prog_name);}
 
-#define dasdfmt_getopt_string "b:n:l:f:d:m:r:hpPLtyvVFk"
+#define dasdfmt_getopt_string "b:n:l:f:d:m:r:hpQLtyvVFkYP:"
 
 static struct option dasdfmt_getopt_long_options[]=
 {
@@ -225,12 +226,14 @@ static struct option dasdfmt_getopt_long_options[]=
         { "force",       0, 0, 'F'},
         { "progressbar", 0, 0, 'p'},
         { "hashmarks",   1, 0, 'm'},
-	{ "percentage",  0, 0, 'P'},
+        { "percentage",  0, 0, 'Q'},
         { "label",       1, 0, 'l'},
         { "device",      1, 0, 'f'},
         { "blocksize",   1, 0, 'b'},
 	{ "requestsize", 1, 0, 'r'},
         { "help",        0, 0, 'h'},
+        { "max_parallel",1, 0, 'P'},
+        { "yast_mode",   0, 0, 'Y'},
         { "keep_volser", 0, 0, 'k'},
         { "norecordzero",  0, 0, 'z'},
         {0, 0, 0, 0}
@@ -265,6 +268,8 @@ typedef struct dasdfmt_info {
         int   node_specified;
         int   device_id;
         int   keep_volser;
+        int   yast_mode;
+        int   procnum;
 } dasdfmt_info_t;
 
 
